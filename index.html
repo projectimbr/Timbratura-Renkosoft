@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="it" data-theme="light">
+<html lang="it" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
@@ -11,7 +11,6 @@
 <title>Timbrature</title>
 <!-- Google Fonts: usa system fonts per compatibilità CSP GAS -->
 <style>
-html{font-size:120%;}
 /* ── TOKENS ─────────────────────────────────────────────── */
 :root{
   --bg:#0b1623;--srf:#111f32;--srf2:#0e1a2b;--brd:#1e3450;
@@ -547,30 +546,6 @@ input[type=date].fi{color-scheme:dark;}
   cursor:pointer;transition:.2s;}
 .luoghi-list .ltag:hover{background:rgba(41,128,185,.25);}
 
-.nb-locked{opacity:.45;cursor:not-allowed;position:relative;}
-.nb-locked::after{content:"";position:absolute;inset:0;}
-.nb-locked.unlocked{opacity:1;cursor:pointer;}
-.nb-locked.unlocked::after{display:none;}
-body.zoom-lg{font-size:118%;}
-body.zoom-xl{font-size:136%;}
-body.zoom-lg{font-size:118% !important;}
-body.zoom-xl{font-size:136% !important;}
-
-/* ── ZOOM UI ─────────────────────────────────────────────── */
-.nb{ font-size:1rem !important; padding:10px 14px !important; }
-.nb .ni{ font-size:1.1rem !important; }
-.hadmin, .hbtn{ font-size:.95rem !important; padding:7px 14px !important; }
-.hlogo{ font-size:1.1rem !important; }
-.hbadge{ font-size:.85rem !important; }
-#hdr-op-info{ font-size:.85rem !important; }
-#bigclock{ font-size:5rem !important; }
-#bigdate{ font-size:1.1rem !important; }
-#status-bar{ font-size:.95rem !important; }
-.fi, select.fi, input.fi{ font-size:.95rem !important; }
-.hbtn{ font-size:.9rem !important; }
-label, th, td{ font-size:.9rem !important; }
-.badge-in, .badge-out{ font-size:.85rem !important; }
-
 </style>
 </head>
 <body>
@@ -607,7 +582,6 @@ label, th, td{ font-size:.9rem !important; }
     <div class="scan-sub">Posiziona il barcode davanti allo scanner oppure digita il codice</div>
     <input type="text" id="barcode-input"
       placeholder="▌ Inserisci codice badge..."
-      inputmode="none"
       autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
     <div class="scan-hint" id="scan-hint-txt" style="visibility:hidden;"></div>
     <button id="btn-invia-badge" onclick="processBarcode()"
@@ -688,37 +662,40 @@ label, th, td{ font-size:.9rem !important; }
 <!-- SPINNER -->
 <div id="spinner"><div class="spin-ring"></div></div>
 
-
-<!-- ═══════════════════════════════════════════════════════
-     SUPABASE LAYER - sostituisce google.script.run
-     ═══════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════
+     SUPABASE LAYER — sostituisce google.script.run
+     ═══════════════════════════════════════════════ -->
 <script>
-const SB_URL = 'https://ayljuhtujbjdalsvpkas.supabase.co';
-const SB_KEY = 'sb_publishable_9e_DCKh2M25EmZA5ZxVzfA_HMnKM7ek';
+'use strict';
+const _SB_URL = 'https://ayljuhtujbjdalsvpkas.supabase.co';
+const _SB_KEY = 'sb_publishable_9e_DCKh2M25EmZA5ZxVzfA_HMnKM7ek';
 
-// Helper base per chiamate REST Supabase
+// ── Base REST helper ──────────────────────────────────────
 async function _sb(path, opts) {
-  const url = SB_URL + '/rest/v1/' + path;
-  const headers = {
-    'apikey': SB_KEY,
-    'Authorization': 'Bearer ' + SB_KEY,
-    'Content-Type': 'application/json',
-    'Prefer': opts.prefer || 'return=representation'
-  };
-  const res = await fetch(url, { method: opts.method||'GET', headers, body: opts.body ? JSON.stringify(opts.body) : undefined });
-  if(!res.ok) { const e = await res.text(); throw new Error(e); }
-  const text = await res.text();
-  return text ? JSON.parse(text) : null;
+  opts = opts || {};
+  const res = await fetch(_SB_URL + '/rest/v1/' + path, {
+    method: opts.method || 'GET',
+    headers: {
+      'apikey': _SB_KEY,
+      'Authorization': 'Bearer ' + _SB_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': opts.prefer || 'return=representation'
+    },
+    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined
+  });
+  if(!res.ok) throw new Error(await res.text());
+  const t = await res.text();
+  return t ? JSON.parse(t) : null;
 }
 
 // ── AUTH ──────────────────────────────────────────────────
 async function loginOperatore(username, password) {
   try {
-    const users = await _sb('shop_users?username=eq.' + encodeURIComponent(username) + '&attivo=eq.true&select=*', {});
-    if(!users || !users.length) return { success:false, message:'Utente non trovato' };
+    const users = await _sb('shop_users?username=eq.' + encodeURIComponent(username) + '&attivo=eq.true');
+    if(!users || !users.length) return {success:false,message:'Utente non trovato'};
     const u = users[0];
-    if(u.password !== password) return { success:false, message:'Password errata' };
-    const shops = await _sb('shops?id=eq.' + u.shop_id + '&select=*', {});
+    if(u.password !== password) return {success:false,message:'Password errata'};
+    const shops = await _sb('shops?id=eq.' + u.shop_id);
     const shop = shops && shops[0];
     return {
       success:true, userId:u.id, username:u.username, nome:u.nome,
@@ -726,353 +703,308 @@ async function loginOperatore(username, password) {
       shopSettings:shop?shop.settings:{}, employeeId:u.employee_id||null,
       permessi:u.ruolo==='admin'?{dashboard:true,tabella:true,calendario:true,dipendenti:true,export:true,ore:true,anomalie:true,ferie:true,turni:true,report:true,impostazioni:true,eliminaTimbrature:true,modificaTimbrature:true}:(u.permessi||{})
     };
-  } catch(e) { return { success:false, message:e.message }; }
+  } catch(e) { return {success:false,message:e.message}; }
 }
 
 // ── DIPENDENTI ────────────────────────────────────────────
 async function getEmployees(shopId) {
   if(!shopId) return [];
   try {
-    const rows = await _sb('employees?shop_id=eq.' + shopId + '&order=cognome', {});
-    return (rows||[]).map(r => ({ id:r.id, nome:r.nome, cognome:r.cognome, ruolo:r.ruolo, colore:r.colore, orario:r.orario||{}, giorniRiposo:r.giorni_riposo||[] }));
+    const r = await _sb('employees?shop_id=eq.' + shopId + '&order=cognome');
+    return (r||[]).map(e => ({id:e.id,nome:e.nome,cognome:e.cognome,ruolo:e.ruolo,colore:e.colore,orario:e.orario||{},giorniRiposo:e.giorni_riposo||[]}));
   } catch(e) { return []; }
 }
 
+async function getEmployeesForCache(shopId) { return getEmployees(shopId); }
+
 async function saveEmployee(shopId, emp) {
-  if(!shopId) return { success:false, message:'shopId mancante' };
+  if(!shopId) return {success:false};
   try {
-    const exists = await _sb('employees?shop_id=eq.' + shopId + '&id=eq.' + String(emp.id), {});
-    const body = {
-      shop_id: shopId,
-      id: String(emp.id),
-      nome: emp.nome || '',
-      cognome: emp.cognome || '',
-      ruolo: emp.ruolo || '',
-      colore: emp.colore || '#2980b9',
-      orario: emp.orario || {},
-      giorni_riposo: emp.giorniRiposo || []
-    };
-    if(exists && exists.length) {
-      await _sb('employees?shop_id=eq.' + shopId + '&id=eq.' + String(emp.id),
-        { method:'PATCH', prefer:'return=minimal', body });
-    } else {
-      await _sb('employees', { method:'POST', prefer:'return=minimal', body });
-    }
-    return { success:true };
-  } catch(e) { return { success:false, message:e.message }; }
+    const body = {shop_id:shopId,id:String(emp.id),nome:emp.nome||'',cognome:emp.cognome||'',ruolo:emp.ruolo||'',colore:emp.colore||'#2980b9',orario:emp.orario||{},giorni_riposo:emp.giorniRiposo||[]};
+    const ex = await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+String(emp.id));
+    if(ex&&ex.length) await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+String(emp.id),{method:'PATCH',prefer:'return=minimal',body});
+    else await _sb('employees',{method:'POST',prefer:'return=minimal',body});
+    return {success:true};
+  } catch(e) { return {success:false,message:e.message}; }
 }
 
 async function deleteEmployee(shopId, empId) {
-  if(!shopId) return { success:false };
-  try {
-    await _sb('employees?shop_id=eq.' + shopId + '&id=eq.' + String(empId),
-      { method:'DELETE', prefer:'return=minimal' });
-    return { success:true };
-  } catch(e) { return { success:false, message:e.message }; }
+  if(!shopId) return {success:false};
+  try { await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+String(empId),{method:'DELETE',prefer:'return=minimal'}); return {success:true}; }
+  catch(e) { return {success:false,message:e.message}; }
 }
 
-
-async function addManualPunch(shopId, punch) {
-  if(!shopId) return { success:false };
-  try {
-    const emps = await _sb('employees?shop_id=eq.' + shopId + '&id=eq.' + punch.id, {});
-    const emp = emps && emps[0];
-    await _sb('punches', { method:'POST', prefer:'return=minimal', body:{
-      shop_id:shopId, emp_id:String(punch.id), barcode:String(punch.id),
-      nome:emp?emp.nome:'', cognome:emp?emp.cognome:'',
-      data:punch.data, ora:punch.ora, tipo:punch.tipo, nota:punch.nota||'', manuale:true
-    } });
-    return { success:true };
-  } catch(e) { return { success:false, message:e.message }; }
-}
-
-// ── TIMBRATURE ────────────────────────────────────────────
+// ── TIMBRATURA ────────────────────────────────────────────
 async function timbratura(shopId, barcode) {
-  if(!shopId) return { success:false, message:'ShopId mancante' };
+  if(!shopId) return {success:false,message:'ShopId mancante'};
   try {
-    const emps = await _sb('employees?shop_id=eq.' + shopId + '&id=eq.' + barcode, {});
-    const emp = emps && emps[0];
-    if(!emp) return { success:false, message:'Badge non riconosciuto' };
-    // Assenze oggi
+    const emps = await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+barcode);
+    const emp = emps&&emps[0];
+    if(!emp) return {success:false,message:'Badge non riconosciuto'};
     const oggi = new Date().toISOString().split('T')[0];
-    const ass = await _sb('assenze?shop_id=eq.' + shopId + '&emp_id=eq.' + barcode + '&data=lte.' + oggi + '&data_fine=gte.' + oggi, {});
-    if(ass && ass.length) {
-      const t = ass[0].tipo;
-      if(t==='FERIE'||t==='PERMESSO'||t==='MALATTIA') return { success:false, message:emp.nome+' ha '+t+' oggi' };
+    const ass = await _sb('assenze?shop_id=eq.'+shopId+'&emp_id=eq.'+barcode+'&data=lte.'+oggi+'&data_fine=gte.'+oggi);
+    if(ass&&ass.length) {
+      const t=ass[0].tipo;
+      if(t==='FERIE'||t==='PERMESSO'||t==='MALATTIA') return {success:false,message:emp.nome+' ha '+t+' oggi'};
     }
-    // Ultima timbratura oggi
-    const last = await _sb('punches?shop_id=eq.' + shopId + '&emp_id=eq.' + barcode + '&data=eq.' + oggi + '&order=ora.desc&limit=1', {});
-    const lastTipo = last && last[0] ? last[0].tipo : null;
-    const tipo = (!lastTipo || lastTipo==='USCITA') ? 'ENTRATA' : 'USCITA';
+    const last = await _sb('punches?shop_id=eq.'+shopId+'&emp_id=eq.'+barcode+'&data=eq.'+oggi+'&order=ora.desc&limit=1');
+    const tipo = (!last||!last[0]||last[0].tipo==='USCITA')?'ENTRATA':'USCITA';
     const ora = new Date().toTimeString().split(' ')[0];
-    const row = await _sb('punches', { method:'POST', body:{
-      shop_id:shopId, emp_id:String(barcode), barcode:String(barcode),
-      nome:emp.nome, cognome:emp.cognome, data:oggi, ora:ora, tipo:tipo
-    } });
-    const rec = Array.isArray(row) ? row[0] : row;
-    return { success:true, tipo, nome:emp.nome, cognome:emp.cognome, ora, data:oggi, id:rec?rec.id:null };
-  } catch(e) { return { success:false, message:e.message }; }
+    await _sb('punches',{method:'POST',prefer:'return=minimal',body:{shop_id:shopId,emp_id:String(barcode),barcode:String(barcode),nome:emp.nome,cognome:emp.cognome,data:oggi,ora:ora,tipo:tipo}});
+    return {success:true,tipo,nome:emp.nome,cognome:emp.cognome,ora,data:oggi};
+  } catch(e) { return {success:false,message:e.message}; }
 }
 
-async function getPunches(shopId, dateFrom, dateTo, empId) {
+async function syncPunches() { return {success:true}; }
+
+// ── PUNCHES ───────────────────────────────────────────────
+async function getPunches(shopId,dateFrom,dateTo,empId) {
   if(!shopId) return [];
   try {
-    let q = 'punches?shop_id=eq.' + shopId + '&order=data.desc,ora.desc';
-    if(dateFrom) q += '&data=gte.' + dateFrom;
-    if(dateTo)   q += '&data=lte.' + dateTo;
-    if(empId)    q += '&emp_id=eq.' + empId;
-    const rows = await _sb(q, {});
-    return (rows||[]).map(r => ({ id:r.id, empId:r.emp_id, barcode:r.barcode, nome:r.nome, cognome:r.cognome, data:r.data, ora:r.ora?r.ora.substring(0,8):'', tipo:r.tipo, nota:r.nota||'', manuale:r.manuale||false }));
+    let q='punches?shop_id=eq.'+shopId+'&order=data.desc,ora.desc';
+    if(dateFrom) q+='&data=gte.'+dateFrom;
+    if(dateTo)   q+='&data=lte.'+dateTo;
+    if(empId)    q+='&emp_id=eq.'+empId;
+    const r=await _sb(q);
+    return (r||[]).map(p=>(({id:p.id,empId:p.emp_id,barcode:p.barcode,nome:p.nome,cognome:p.cognome,data:p.data,ora:p.ora?p.ora.substring(0,8):'',tipo:p.tipo,nota:p.nota||'',manuale:p.manuale||false})));
   } catch(e) { return []; }
 }
 
-async function getPunchesAvanzata(shopId, params) {
-  params = params || {};
-  const all = await getPunches(shopId, params.dateFrom||null, params.dateTo||null, params.empId||null);
-  return all.filter(p => {
-    if(params.tipo && p.tipo !== params.tipo) return false;
-    if(params.nome && !(p.nome+' '+p.cognome).toLowerCase().includes(params.nome.toLowerCase())) return false;
+async function getPunchesAvanzata(shopId,params) {
+  params=params||{};
+  const all=await getPunches(shopId,params.dateFrom||null,params.dateTo||null,params.empId||null);
+  return all.filter(p=>{
+    if(params.tipo&&p.tipo!==params.tipo) return false;
+    if(params.nome&&!(p.nome+' '+p.cognome).toLowerCase().includes(params.nome.toLowerCase())) return false;
     return true;
   });
 }
 
-async function deletePunch(shopId, punchId) {
-  if(!shopId) return { success:false };
-  try {
-    await _sb('punches?id=eq.' + punchId, { method:'DELETE', prefer:'return=minimal' });
-    return { success:true };
-  } catch(e) { return { success:false, message:e.message }; }
+async function deletePunch(shopId,punchId) {
+  if(!shopId) return {success:false};
+  try { await _sb('punches?id=eq.'+punchId,{method:'DELETE',prefer:'return=minimal'}); return {success:true}; }
+  catch(e) { return {success:false,message:e.message}; }
 }
 
-async function correctPunch(shopId, origData, origId, origTipo, origOra, newData) {
-  if(!shopId) return { success:false };
+async function addManualPunch(shopId,punch) {
+  if(!shopId) return {success:false};
   try {
-    // Trova il record
-    const rows = await _sb('punches?shop_id=eq.' + shopId + '&emp_id=eq.' + origId + '&data=eq.' + origData + '&tipo=eq.' + origTipo + '&ora=like.' + (origOra?origOra.substring(0,5):'%') + '*', {});
-    if(!rows || !rows.length) return { success:false, message:'Timbratura non trovata' };
-    const id = rows[0].id;
-    const upd = {};
-    if(newData.data) upd.data = newData.data;
-    if(newData.ora)  upd.ora  = newData.ora;
-    if(newData.tipo) upd.tipo = newData.tipo;
-    if(newData.nota !== undefined) upd.nota = newData.nota;
-    await _sb('punches?id=eq.' + id, { method:'PATCH', prefer:'return=minimal', body:upd });
-    return { success:true };
-  } catch(e) { return { success:false, message:e.message }; }
+    const emps=await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+punch.id);
+    const emp=emps&&emps[0];
+    await _sb('punches',{method:'POST',prefer:'return=minimal',body:{shop_id:shopId,emp_id:String(punch.id),barcode:String(punch.id),nome:emp?emp.nome:'',cognome:emp?emp.cognome:'',data:punch.data,ora:punch.ora,tipo:punch.tipo,nota:punch.nota||'',manuale:true}});
+    return {success:true};
+  } catch(e) { return {success:false,message:e.message}; }
+}
+
+async function correctPunch(shopId,origData,origId,origTipo,origOra,nd) {
+  if(!shopId) return {success:false};
+  try {
+    let q='punches?shop_id=eq.'+shopId+'&emp_id=eq.'+origId+'&data=eq.'+origData+'&tipo=eq.'+origTipo;
+    if(origOra) q+='&ora=like.'+origOra.substring(0,5)+'*';
+    const rows=await _sb(q);
+    if(!rows||!rows.length) return {success:false,message:'Non trovata'};
+    const upd={};
+    if(nd.data) upd.data=nd.data; if(nd.ora) upd.ora=nd.ora;
+    if(nd.tipo) upd.tipo=nd.tipo; if(nd.nota!==undefined) upd.nota=nd.nota;
+    await _sb('punches?id=eq.'+rows[0].id,{method:'PATCH',prefer:'return=minimal',body:upd});
+    return {success:true};
+  } catch(e) { return {success:false,message:e.message}; }
 }
 
 // ── ASSENZE ───────────────────────────────────────────────
-async function getAssenze(shopId, dateFrom, dateTo, empId) {
+async function getAssenze(shopId,dateFrom,dateTo,empId) {
   if(!shopId) return [];
   try {
-    let q = 'assenze?shop_id=eq.' + shopId + '&order=data.desc';
-    if(dateFrom) q += '&data=gte.' + dateFrom;
-    if(dateTo)   q += '&data_fine=lte.' + dateTo;
-    if(empId)    q += '&emp_id=eq.' + empId;
-    const rows = await _sb(q, {});
-    return (rows||[]).map(r => ({ id:r.id, empId:r.emp_id, nome:r.nome, cognome:r.cognome, data:r.data, dataFine:r.data_fine, tipo:r.tipo, nota:r.nota||'' }));
+    let q='assenze?shop_id=eq.'+shopId+'&order=data.desc';
+    if(dateFrom) q+='&data=gte.'+dateFrom;
+    if(dateTo)   q+='&data_fine=lte.'+dateTo;
+    if(empId)    q+='&emp_id=eq.'+empId;
+    const r=await _sb(q);
+    return (r||[]).map(a=>(({id:a.id,empId:a.emp_id,nome:a.nome,cognome:a.cognome,data:a.data,dataFine:a.data_fine,tipo:a.tipo,nota:a.nota||''})));
   } catch(e) { return []; }
 }
 
-async function saveAssenza(shopId, assenza) {
-  if(!shopId) return { success:false };
-  try {
-    const emps = await _sb('employees?shop_id=eq.' + shopId + '&id=eq.' + assenza.empId, {});
-    const emp = emps && emps[0];
-    if(!emp) return { success:false, message:'Dipendente non trovato' };
-    await _sb('assenze', { method:'POST', prefer:'return=minimal', body:{
-      shop_id:shopId, emp_id:String(assenza.empId),
-      nome:emp.nome, cognome:emp.cognome,
-      data:assenza.data, data_fine:assenza.dataFine||assenza.data,
-      tipo:assenza.tipo, nota:assenza.nota||''
-    } });
-    return { success:true };
-  } catch(e) { return { success:false, message:e.message }; }
-}
-
-async function deleteAssenza(shopId, assenzaId) {
-  if(!shopId) return { success:false };
-  try {
-    await _sb('assenze?id=eq.' + assenzaId, { method:'DELETE', prefer:'return=minimal' });
-    return { success:true };
-  } catch(e) { return { success:false, message:e.message }; }
-}
-
-// ── CALENDARIO ───────────────────────────────────────────
-async function getCalendarData(shopId, year, month) {
-  if(!shopId) return {};
-  const pad = n => String(n).padStart(2,'0');
-  const da = year+'-'+pad(month)+'-01';
-  const lastDay = new Date(year, month, 0).getDate();
-  const a  = year+'-'+pad(month)+'-'+pad(lastDay);
-  try {
-    const [punches, assenze] = await Promise.all([
-      getPunches(shopId, da, a, null),
-      getAssenze(shopId, da, a, null)
-    ]);
-    const byDay = {};
-    punches.forEach(p => {
-      const gg = p.data.split('-')[2];
-      if(!byDay[gg]) byDay[gg] = { entrate:0, uscite:0, ids:[], assenze:[] };
-      if(p.tipo==='ENTRATA') byDay[gg].entrate++;
-      if(p.tipo==='USCITA')  byDay[gg].uscite++;
-      if(!byDay[gg].ids.includes(p.empId)) byDay[gg].ids.push(p.empId);
-    });
-    assenze.forEach(ass => {
-      const gg = ass.data.split('-')[2];
-      if(!byDay[gg]) byDay[gg] = { entrate:0, uscite:0, ids:[], assenze:[] };
-      byDay[gg].assenze.push({ id:ass.empId, nome:ass.nome, cognome:ass.cognome, tipo:ass.tipo, nota:ass.nota||'' });
-    });
-    return byDay;
-  } catch(e) { return {};  }
-}
-
-// ── ORE & RIEPILOGO ──────────────────────────────────────
-async function getRiepilogoOre(shopId, year, month) {
-  if(!shopId) return { employees:[], lastDay:30, soglia:8 };
-  const pad = n => String(n).padStart(2,'0');
-  const prefix = year+'-'+pad(month);
-  const lastDay = new Date(year, month, 0).getDate();
-  const soglia = 8*60;
-  try {
-    const punches = await getPunches(shopId, prefix+'-01', prefix+'-'+pad(lastDay), null);
-    const byEmp = {};
-    punches.forEach(p => {
-      const eid = p.empId;
-      if(!byEmp[eid]) byEmp[eid] = { nome:(p.nome||'')+' '+(p.cognome||''), giorni:{} };
-      const gg = p.data.split('-')[2];
-      if(!byEmp[eid].giorni[gg]) byEmp[eid].giorni[gg] = [];
-      byEmp[eid].giorni[gg].push(p);
-    });
-    const fmtOre = m => Math.floor(m/60)+'h'+pad(m%60);
-    const result = Object.keys(byEmp).map(empId => {
-      const emp = byEmp[empId]; let totMin=0,totExtra=0,giorniLav=0,nAnom=0; const giorni={};
-      for(let g=1;g<=lastDay;g++) {
-        const gg=pad(g); const ps=emp.giorni[gg]||[];
-        if(!ps.length){ giorni[gg]=null; continue; }
-        const sorted=ps.slice().sort((a,b)=>a.ora<b.ora?-1:1); let minG=0,lastIn=null;
-        sorted.forEach(p=>{ if(p.tipo==='ENTRATA') lastIn=p.ora; else if(p.tipo==='USCITA'&&lastIn){ const [ah,am]=lastIn.split(':'); const [bh,bm]=p.ora.split(':'); minG+=(parseInt(bh)*60+parseInt(bm))-(parseInt(ah)*60+parseInt(am)); lastIn=null; } });
-        const entr=ps.filter(x=>x.tipo==='ENTRATA'),usc=ps.filter(x=>x.tipo==='USCITA');
-        const anom=entr.length!==usc.length; totMin+=minG; if(minG>0)giorniLav++;
-        const extra=Math.max(0,minG-soglia); totExtra+=extra; if(anom)nAnom++;
-        giorni[gg]={ min:minG,ore:fmtOre(minG),extra:extra>0?fmtOre(extra):'',anom,in:entr.length?entr.sort((a,b)=>a.ora<b.ora?-1:1)[0].ora.substring(0,5):'',out:usc.length?usc.sort((a,b)=>a.ora<b.ora?-1:1)[usc.length-1].ora.substring(0,5):'' };
+async function getAssenzeMensili(shopId,year,month) {
+  const pad=n=>String(n).padStart(2,'0');
+  const prefix=year+'-'+pad(month);
+  const lastDay=new Date(year,month,0).getDate();
+  const da=prefix+'-01', a=prefix+'-'+pad(lastDay);
+  const all=await getAssenze(shopId,da,a,null);
+  const byEmp={};
+  all.forEach(ass=>{
+    if(!byEmp[ass.empId]) byEmp[ass.empId]={nome:(ass.nome||'')+' '+(ass.cognome||''),giorni:{},note:{}};
+    const di=new Date(ass.data), df=new Date(ass.dataFine||ass.data);
+    for(let d=new Date(di);d<=df;d.setDate(d.getDate()+1)){
+      const ds=d.toISOString().split('T')[0];
+      if(ds>=da&&ds<=a){
+        const gg=ds.split('-')[2];
+        byEmp[ass.empId].giorni[gg]=ass.tipo;
+        byEmp[ass.empId].note[gg]=ass.nota||'';
       }
-      return { id:empId,nome:emp.nome,totOre:fmtOre(totMin),totMin,straord:totExtra>0?fmtOre(totExtra):'-',giorniLav,nAnom,giorni };
+    }
+  });
+  return {byEmp,lastDay};
+}
+
+async function saveAssenza(shopId,ass) {
+  if(!shopId) return {success:false};
+  try {
+    const emps=await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+ass.empId);
+    const emp=emps&&emps[0];
+    if(!emp) return {success:false,message:'Dipendente non trovato'};
+    await _sb('assenze',{method:'POST',prefer:'return=minimal',body:{shop_id:shopId,emp_id:String(ass.empId),nome:emp.nome,cognome:emp.cognome,data:ass.data,data_fine:ass.dataFine||ass.data,tipo:ass.tipo,nota:ass.nota||''}});
+    return {success:true};
+  } catch(e) { return {success:false,message:e.message}; }
+}
+
+async function deleteAssenza(shopId,assId) {
+  if(!shopId) return {success:false};
+  try { await _sb('assenze?id=eq.'+assId,{method:'DELETE',prefer:'return=minimal'}); return {success:true}; }
+  catch(e) { return {success:false,message:e.message}; }
+}
+
+// ── CALENDARIO & STATS ────────────────────────────────────
+async function getCalendarData(shopId,year,month) {
+  if(!shopId) return {};
+  const pad=n=>String(n).padStart(2,'0');
+  const da=year+'-'+pad(month)+'-01', a=year+'-'+pad(month)+'-'+pad(new Date(year,month,0).getDate());
+  try {
+    const [punches,assenze]=await Promise.all([getPunches(shopId,da,a,null),getAssenze(shopId,da,a,null)]);
+    const bd={};
+    punches.forEach(p=>{const gg=p.data.split('-')[2];if(!bd[gg])bd[gg]={entrate:0,uscite:0,ids:[],assenze:[]};if(p.tipo==='ENTRATA')bd[gg].entrate++;if(p.tipo==='USCITA')bd[gg].uscite++;if(!bd[gg].ids.includes(p.empId))bd[gg].ids.push(p.empId);});
+    assenze.forEach(a=>{const gg=a.data.split('-')[2];if(!bd[gg])bd[gg]={entrate:0,uscite:0,ids:[],assenze:[]};bd[gg].assenze.push({id:a.empId,nome:a.nome,cognome:a.cognome,tipo:a.tipo,nota:a.nota||''});});
+    return bd;
+  } catch(e) { return {}; }
+}
+
+async function getOggiStats(shopId) {
+  const oggi=new Date().toISOString().split('T')[0];
+  const punch=await getPunches(shopId,oggi,oggi,null);
+  const pre={},usc={};
+  punch.forEach(p=>{if(p.tipo==='ENTRATA'){pre[p.empId]=p;delete usc[p.empId];}else{usc[p.empId]=p;delete pre[p.empId];}});
+  return {data:oggi,totale:punch.length,presenti:Object.values(pre),usciti:Object.values(usc),punches:punch};
+}
+
+// ── ORE & ANOMALIE ────────────────────────────────────────
+async function getRiepilogoOre(shopId,year,month) {
+  if(!shopId) return {employees:[],lastDay:30,soglia:8};
+  const pad=n=>String(n).padStart(2,'0');
+  const prefix=year+'-'+pad(month), lastDay=new Date(year,month,0).getDate(), soglia=8*60;
+  const fmt=m=>Math.floor(m/60)+'h'+pad(m%60);
+  try {
+    const punches=await getPunches(shopId,prefix+'-01',prefix+'-'+pad(lastDay),null);
+    const byEmp={};
+    punches.forEach(p=>{const eid=p.empId;if(!byEmp[eid])byEmp[eid]={nome:(p.nome||'')+' '+(p.cognome||''),giorni:{}};const gg=p.data.split('-')[2];if(!byEmp[eid].giorni[gg])byEmp[eid].giorni[gg]=[];byEmp[eid].giorni[gg].push(p);});
+    const result=Object.keys(byEmp).map(eid=>{
+      const emp=byEmp[eid];let totMin=0,totExtra=0,giorniLav=0,nAnom=0;const giorni={};
+      for(let g=1;g<=lastDay;g++){
+        const gg=pad(g),ps=emp.giorni[gg]||[];
+        if(!ps.length){giorni[gg]=null;continue;}
+        const sorted=ps.slice().sort((a,b)=>a.ora<b.ora?-1:1);let minG=0,lastIn=null;
+        sorted.forEach(p=>{if(p.tipo==='ENTRATA')lastIn=p.ora;else if(p.tipo==='USCITA'&&lastIn){const[ah,am,as]=lastIn.split(':');const[bh,bm,bs]=p.ora.split(':');minG+=(+bh*60+ +bm)-(+ah*60+ +am);lastIn=null;}});
+        const entr=ps.filter(x=>x.tipo==='ENTRATA'),usc=ps.filter(x=>x.tipo==='USCITA');
+        const anom=entr.length!==usc.length;totMin+=minG;if(minG>0)giorniLav++;
+        const extra=Math.max(0,minG-soglia);totExtra+=extra;if(anom)nAnom++;
+        giorni[gg]={min:minG,ore:fmt(minG),extra:extra>0?fmt(extra):'',anom,in:entr.length?entr.sort((a,b)=>a.ora<b.ora?-1:1)[0].ora.substring(0,5):'',out:usc.length?usc.sort((a,b)=>a.ora<b.ora?-1:1)[usc.length-1].ora.substring(0,5):''};
+      }
+      return {id:eid,nome:emp.nome,totOre:fmt(totMin),totMin,straord:totExtra>0?fmt(totExtra):'-',giorniLav,nAnom,giorni};
     });
     result.sort((a,b)=>a.nome<b.nome?-1:1);
-    return { employees:result, lastDay, soglia:8 };
-  } catch(e) { return { employees:[], lastDay:30, soglia:8 }; }
+    return {employees:result,lastDay,soglia:8};
+  } catch(e) { return {employees:[],lastDay:30,soglia:8}; }
 }
 
-async function getAnomalie(shopId, dateFrom, dateTo) {
-  const punches = await getPunches(shopId, dateFrom, dateTo, null);
-  const byKey = {};
-  punches.forEach(p=>{ const k=p.data+'|'+p.empId; if(!byKey[k])byKey[k]=[]; byKey[k].push(p); });
-  const anomalie = [];
+async function getAnomalie(shopId,dateFrom,dateTo) {
+  const punches=await getPunches(shopId,dateFrom,dateTo,null);
+  const byKey={};
+  punches.forEach(p=>{const k=p.data+'|'+p.empId;if(!byKey[k])byKey[k]=[];byKey[k].push(p);});
+  const an=[];
   Object.keys(byKey).forEach(k=>{
-    const ps=byKey[k],nome=ps[0].nome+' '+ps[0].cognome,data=ps[0].data,empId=ps[0].empId;
+    const ps=byKey[k],nome=ps[0].nome+' '+ps[0].cognome,data=ps[0].data,eid=ps[0].empId;
     const entr=ps.filter(p=>p.tipo==='ENTRATA'),usc=ps.filter(p=>p.tipo==='USCITA');
-    if(entr.length>usc.length) anomalie.push({tipo:'ENTRATA_SENZA_USCITA',label:'Entrata senza uscita',data,id:empId,nome,dettaglio:entr.length+' entr, '+usc.length+' usc'});
-    if(usc.length>entr.length) anomalie.push({tipo:'USCITA_SENZA_ENTRATA',label:'Uscita senza entrata',data,id:empId,nome,dettaglio:usc.length+' usc, '+entr.length+' entr'});
+    if(entr.length>usc.length) an.push({tipo:'ENTRATA_SENZA_USCITA',label:'Entrata senza uscita',data,id:eid,nome,dettaglio:entr.length+' entr, '+usc.length+' usc'});
+    if(usc.length>entr.length) an.push({tipo:'USCITA_SENZA_ENTRATA',label:'Uscita senza entrata',data,id:eid,nome,dettaglio:usc.length+' usc, '+entr.length+' entr'});
   });
-  anomalie.sort((a,b)=>a.data<b.data?1:-1);
-  return anomalie;
+  an.sort((a,b)=>a.data<b.data?1:-1);
+  return an;
 }
 
-// ── ALTRI ────────────────────────────────────────────────
-async function getOggiStats(shopId) {
-  const oggi = new Date().toISOString().split('T')[0];
-  const punch = await getPunches(shopId, oggi, oggi, null);
-  const presenti={},usciti={};
-  punch.forEach(p=>{ if(p.tipo==='ENTRATA'){presenti[p.empId]=p;delete usciti[p.empId];} else {usciti[p.empId]=p;delete presenti[p.empId];} });
-  return { data:oggi, totale:punch.length, presenti:Object.values(presenti), usciti:Object.values(usciti), punches:punch };
-}
-
-async function saveTurno(shopId, turno) { return { success:true }; }
-async function deleteTurno(shopId, turnoId) { return { success:true }; }
-async function setReportEmail(shopId, email) { return { success:true }; }
-async function getAssenzeMensili(shopId, year, month) { return { byEmp:{}, lastDay:30 }; }
-
-async function warmUp() { return true; }
-async function syncPunches() { return { success:true }; }
-async function getEmployeesForCache(shopId) { return await getEmployees(shopId); }
+// ── REPARTI & TURNI (stub) ────────────────────────────────
 async function getReparti(shopId) { return []; }
 async function getTurni(shopId) { return []; }
+async function saveTurno(shopId,turno) { return {success:true}; }
+async function deleteTurno(shopId,id) { return {success:true}; }
+async function confrontaTurni(shopId,year,month) { return {}; }
+
+// ── REPORT ────────────────────────────────────────────────
 async function getReportEmail(shopId) { return null; }
-async function buildXLSXBase64() { return null; }
-async function getShopSettingsPublic(shopId) {
+async function setReportEmail(shopId,email) { return {success:true}; }
+async function inviaReportMensile(shopId) { return {success:false,message:'Non disponibile'}; }
+async function inviaReportSettimanale(shopId) { return {success:false,message:'Non disponibile'}; }
+
+// ── IMPOSTAZIONI ──────────────────────────────────────────
+async function salvaImpostazioni(shopId,settings) {
+  if(!shopId) return {success:false};
   try {
-    const shops = await _sb('shops?id=eq.' + shopId, {});
-    const shop = shops && shops[0];
-    return shop ? { success:true, settings:shop.settings||{}, nome:shop.nome } : { success:false };
-  } catch(e) { return { success:false }; }
+    await _sb('shops?id=eq.'+shopId,{method:'PATCH',prefer:'return=minimal',body:{settings:settings}});
+    return {success:true};
+  } catch(e) { return {success:false,message:e.message}; }
 }
 
-// ── WRAPPER google.script.run compatibile ────────────────
-const _SB_FNS = {
-  loginOperatore: loginOperatore,
-  getEmployees: getEmployees,
-  addManualPunch: addManualPunch,
-  timbratura: timbratura,
-  getPunches: getPunches,
-  getPunchesAvanzata: getPunchesAvanzata,
-  deletePunch: deletePunch,
-  correctPunch: correctPunch,
-  getAssenze: getAssenze,
-  saveAssenza: saveAssenza,
-  deleteAssenza: deleteAssenza,
-  getCalendarData: getCalendarData,
-  getRiepilogoOre: getRiepilogoOre,
-  getAnomalie: getAnomalie,
-  getOggiStats: getOggiStats,
-  warmUp: warmUp,
-  syncPunches: syncPunches,
-  getEmployeesForCache: getEmployeesForCache,
-  getReparti: getReparti,
-  getTurni: getTurni,
-  getReportEmail: getReportEmail,
-  buildXLSXBase64: buildXLSXBase64,
-  getShopSettingsPublic: getShopSettingsPublic,
-  saveEmployee: saveEmployee,
-  deleteEmployee: deleteEmployee,
-  getReparti: getReparti,
-  getTurni: getTurni,
-  saveTurno: saveTurno,
-  deleteTurno: deleteTurno,
-  getReportEmail: getReportEmail,
-  setReportEmail: setReportEmail,
-  getAssenzeMensili: getAssenzeMensili,
-  getRiepilogoOre: getRiepilogoOre,
-  getAnomalie: getAnomalie,
-  buildXLSXBase64: buildXLSXBase64
+async function setOreSoglia(shopId,ore) {
+  if(!shopId) return {success:false};
+  try {
+    const shop=await _sb('shops?id=eq.'+shopId);
+    const s=(shop&&shop[0]&&shop[0].settings)||{};
+    s.oreSoglia=ore;
+    await _sb('shops?id=eq.'+shopId,{method:'PATCH',prefer:'return=minimal',body:{settings:s}});
+    return {success:true};
+  } catch(e) { return {success:false,message:e.message}; }
+}
+
+async function getShopSettingsPublic(shopId) {
+  try {
+    const r=await _sb('shops?id=eq.'+shopId);
+    const s=r&&r[0];
+    return s?{success:true,settings:s.settings||{},nome:s.nome}:{success:false};
+  } catch(e) { return {success:false}; }
+}
+
+// ── MISC ──────────────────────────────────────────────────
+async function warmUp() { return true; }
+async function syncPunches() { return {success:true}; }
+async function reverseGeocode(lat,lng) { return ''; }
+async function buildXLSXBase64() { return null; }
+async function buildRiepilogoXLSX() { return null; }
+
+// ── WRAPPER google.script.run ─────────────────────────────
+const _ALL_FNS = {
+  loginOperatore,getEmployees,getEmployeesForCache,saveEmployee,deleteEmployee,
+  timbratura,syncPunches,getPunches,getPunchesAvanzata,deletePunch,addManualPunch,correctPunch,
+  getAssenze,getAssenzeMensili,saveAssenza,deleteAssenza,
+  getCalendarData,getOggiStats,getRiepilogoOre,getAnomalie,
+  getReparti,getTurni,saveTurno,deleteTurno,confrontaTurni,
+  getReportEmail,setReportEmail,inviaReportMensile,inviaReportSettimanale,
+  salvaImpostazioni,setOreSoglia,getShopSettingsPublic,
+  warmUp,reverseGeocode,buildXLSXBase64,buildRiepilogoXLSX
 };
 
 function _sbRun() {
-  var _onSuccess = function(r){ return r; };
-  var _onFailure = function(e){ console.error(e); };
-  var obj = {
-    withSuccessHandler: function(fn){ _onSuccess = fn; return obj; },
-    withFailureHandler: function(fn){ _onFailure = fn; return obj; }
+  var _ok=function(r){return r;}, _err=function(e){console.error(e);};
+  var obj={
+    withSuccessHandler:function(fn){_ok=fn;return obj;},
+    withFailureHandler:function(fn){_err=fn;return obj;}
   };
-  Object.keys(_SB_FNS).forEach(function(name) {
-    obj[name] = function() {
-      var args = Array.prototype.slice.call(arguments);
-      (_SB_FNS[name].apply(null, args))
-        .then(_onSuccess).catch(function(e){ _onFailure(e); });
+  Object.keys(_ALL_FNS).forEach(function(name){
+    obj[name]=function(){
+      var args=Array.prototype.slice.call(arguments);
+      _ALL_FNS[name].apply(null,args).then(_ok).catch(_err);
     };
   });
   return obj;
 }
 
-const google = {
-  script: {
-    run: new Proxy({}, {
-      get: function(_, prop) {
-        return _sbRun()[prop] || function(){};
-      }
-    })
-  }
-};
+const google={script:{run:new Proxy({},{get:function(_,p){return _sbRun()[p]||function(){};}})}};
 </script>
 <script>
 // ── IMPOSTAZIONI INIETTATE DAL SERVER (nessun localStorage) ──
@@ -1318,10 +1250,40 @@ var _settings = {};  // cache locale
 
 // ── SESSIONE OPERATORE ──────────────────────────────────────
 var _session = null;
-// Ripristina sessione da localStorage al caricamento
+
+// ── STORAGE PERSISTENTE (Android SharedPreferences o localStorage) ──
+function _storeSave(key, value) {
+  try {
+    if(window.Android && typeof window.Android.saveData === 'function'){
+      window.Android.saveData(key, value);
+    } else {
+      localStorage.setItem(key, value);
+    }
+  } catch(e){}
+}
+function _storeLoad(key) {
+  try {
+    if(window.Android && typeof window.Android.loadData === 'function'){
+      return window.Android.loadData(key);
+    } else {
+      return localStorage.getItem(key);
+    }
+  } catch(e){ return null; }
+}
+function _storeRemove(key) {
+  try {
+    if(window.Android && typeof window.Android.removeData === 'function'){
+      window.Android.removeData(key);
+    } else {
+      localStorage.removeItem(key);
+    }
+  } catch(e){}
+}
+
+// Ripristina sessione al caricamento
 (function(){
   try {
-    var saved = localStorage.getItem('_timb_session');
+    var saved = _storeLoad('_timb_session');
     if(saved){
       _session = JSON.parse(saved);
       if(_session && _session.shopSettings && typeof _session.shopSettings === 'object'){
@@ -1330,8 +1292,6 @@ var _session = null;
     }
   } catch(e){ _session = null; }
 })();
-// Mostra SuperUser se sessione ripristinata
-setTimeout(function(){ if(typeof _aggiornaBtnSuper==='function') _aggiornaBtnSuper(); },500);  // { userId, username, nome, ruolo, shopId, shopNome, permessi }
 
 function isAdmin(){ return !_session || _session.ruolo === 'admin'; }
 function getShopId(){ return _session ? _session.shopId : null; }
@@ -1888,6 +1848,8 @@ function onSuccess(res){
       } catch(e){}
     }
     mostraConferma(res);
+    // Aggiorna dashboard in background dopo ogni timbratura
+    setTimeout(function(){ loadOggi(); }, 1000);
   } else {
     mostraErrore(res.message || 'Badge non riconosciuto');
   }
@@ -1922,8 +1884,8 @@ function mostraConferma(res){
   fill.style.animation = '';
 
   var ov = document.getElementById('overlay');
-  ov.style.display = 'flex';
-  void ov.offsetWidth;
+  ov.style.display = 'flex';  // forza display prima di show
+  void ov.offsetWidth;         // reflow
   ov.classList.add('show');
 
   setStatus(
@@ -1938,7 +1900,7 @@ function mostraConferma(res){
   clearTimeout(_ovTimer);
   _ovTimer = setTimeout(function(){
     var ov2 = document.getElementById('overlay');
-    if(ov2){ ov2.classList.remove('show'); ov2.style.display=''; }
+    if(ov2){ ov2.classList.remove('show'); ov2.style.display = ''; }
     busy = false;
     refocus();
   }, AUTO_CLOSE);
@@ -2161,7 +2123,7 @@ function chiudiNota(){
 // ── OVERLAY ERRORE ─────────────────────────────────────
 function chiudiOverlay(){
   var ov = document.getElementById('overlay');
-  if(ov){ ov.classList.remove('show'); ov.style.display=''; }
+  if(ov){ ov.classList.remove('show'); ov.style.display = ''; }
   clearTimeout(_ovTimer);
   busy = false;
   refocus();
@@ -2193,23 +2155,6 @@ function setStatus(icon, txt, cls){
 }
 
 // ── CONTROLLO ADMIN OVERLAY ──────────────────────────────────
-function apriEditPunch(idx){
-  var p = _punches[idx];
-  if(!p){ toast('Timbratura non trovata','err'); return; }
-  _punchOrig = {d:p.data,i:p.id,t:p.tipo,o:p.ora};
-  _punchModalMode = 'edit';
-  document.getElementById('punch-modal-title').textContent = 'Modifica timbratura';
-  document.getElementById('pm-save-btn').textContent = 'Salva modifiche';
-  _fillDipSelect('pm-dip', p.id);
-  document.getElementById('pm-dip').disabled = true;
-  document.getElementById('pm-data').value = p.d;
-  document.getElementById('pm-ora').value  = p.o;
-  document.getElementById('pm-tipo').value = p.t;
-  document.getElementById('pm-nota').value = '';
-  document.getElementById('punch-modal').style.display = 'flex';
-}
-
-
 function apriAdmin(){
   _adminOpen = true;
   inp.disabled = true; inp.blur();
@@ -2227,19 +2172,11 @@ function apriAdmin(){
 }
 function chiudiAdmin(){
   _adminOpen = false;
-  inp.disabled = false;
+  inp.disabled = false;  // riabilita il barcode input
   var admC = document.getElementById('adm-overlay');
   admC.style.display = 'none';
   admC.style.pointerEvents = 'none';
   document.body.style.overflow = '';
-  if(_session && _session.shopId){
-    var sb = document.getElementById('status-bar');
-    if(sb){
-      sb.innerHTML = '<span class="si">✅</span><span id="status-txt">'+(_session.shopNome||_session.shopId)+' — Sistema pronto</span>';
-    }
-    var hInfo = document.getElementById('hdr-op-info');
-    if(hInfo) hInfo.textContent = (_session.shopNome||'') + ' — ' + (_session.nome||'');
-  }
   refocus();
 }
 
@@ -2272,8 +2209,24 @@ if(_lpEl) _lpEl.addEventListener('keydown', function(e){
   if(e.key==='Enter') doLogin();
 });
 
-// Mostra login operatore subito — oppure avvia direttamente se URL con ?c=
+// Mostra login operatore subito — oppure avvia direttamente se sessione/clientId
 (function(){
+  // Se sessione già ripristinata da sessionStorage, salta login
+  if(_session && _session.shopId){
+    var ls = document.getElementById('op-login-screen');
+    if(ls) ls.style.display = 'none';
+    // Aggiorna header
+    var hInfo = document.getElementById('hdr-op-info');
+    if(hInfo) hInfo.textContent = (_session.shopNome||'') + ' — ' + (_session.nome||'');
+    var btnAdm = document.getElementById('btn-admin-hdr');
+    if(btnAdm) btnAdm.style.display = (_session.ruolo==='admin') ? 'inline-block' : 'none';
+    // Applica impostazioni e carica dati
+    applicaSessione();
+    caricaImpostazioniAll();
+    _refreshEmployeeCache();
+    _idbInit(function(){ _syncNow(); });
+    return;
+  }
   if(_clientId){
     // URL dedicato con shopId → carica settings negozio e avvia senza login
     var ls = document.getElementById('op-login-screen');
@@ -2327,6 +2280,7 @@ function doOpLogin(){
         return;
       }
       _session = r;
+      try { _storeSave('_timb_session', JSON.stringify(r)); } catch(e){}
       document.getElementById('op-login-screen').style.display = 'none';
       // Pre-riscalda la cache GAS subito
       google.script.run.warmUp();
@@ -2400,13 +2354,14 @@ function doLogin(){
       btn.disabled = false; btn.textContent = 'Accedi';
       if(r && r.success){
         _session = r;
-        try { localStorage.setItem('_timb_session', JSON.stringify(r)); } catch(e){}
+        // Salva sessione in sessionStorage
+        try { _storeSave('_timb_session', JSON.stringify(r)); } catch(e){}
+        // Applica shopSettings
         if(r.shopSettings && typeof r.shopSettings === 'object'){
           Object.assign(_settings, r.shopSettings);
         }
         // Chiudi overlay Admin → torna alla schermata badge
         chiudiAdmin();
-        _aggiornaBtnSuper();
         // Carica dati in background
         loadDipendenti(function(){
           loadOggi();
@@ -2850,11 +2805,6 @@ function buildCalGrid(){
   g.innerHTML = html;
 }
 
-function getColore(id){
-  var d = (_dipendenti||[]).filter(function(x){ return String(x.id)===String(id); })[0];
-  return d ? (d.colore||'#2980b9') : '#2980b9';
-}
-
 function apriGiorno(dateStr, dayNum){
   document.getElementById('det-title').textContent = dayNum+' '+MESI_FULL[_calMonth-1]+' '+_calYear;
   var body = document.getElementById('det-body');
@@ -2913,24 +2863,16 @@ function apriGiorno(dateStr, dayNum){
 
   var myEmpG = _myEmpId();
   var dipG = (myEmpG && myEmpG !== '__NONE__') ? myEmpG : null;
-  var shopId = getShopId();
-
-  // Se shopId è null non possiamo caricare - mostra vuoto
-  if(!shopId){
-    _punches2 = []; _assenze2 = [];
-    _renderGiorno();
-    return;
-  }
 
   google.script.run
     .withSuccessHandler(function(res){ _punches2 = _filterBySession(res)||[]; _renderGiorno(); })
-    .withFailureHandler(function(e){ _punches2 = []; _renderGiorno(); })
-    .getPunches(shopId, dateStr, dateStr, dipG);
+    .withFailureHandler(function(){ _punches2 = []; _renderGiorno(); })
+    .getPunches(getShopId(),dateStr, dateStr, dipG);
 
   google.script.run
     .withSuccessHandler(function(res){ _assenze2 = _filterBySession(res)||[]; _renderGiorno(); })
-    .withFailureHandler(function(e){ _assenze2 = []; _renderGiorno(); })
-    .getAssenze(shopId, dateStr, dateStr, dipG);
+    .withFailureHandler(function(){ _assenze2 = []; _renderGiorno(); })
+    .getAssenze(getShopId(),dateStr, dateStr, dipG);
 }
 
 function chiudiDet(){
@@ -2942,8 +2884,6 @@ function chiudiDet(){
 var _assenzeTabella = [];
 
 function cercaPunches(){
-  var shopId = getShopId();
-  if(!shopId){ toast('Effettua il login prima di cercare','err'); return; }
   var da   = document.getElementById('f-da').value;
   var a    = document.getElementById('f-a').value;
   var dip  = document.getElementById('f-dip').value;
@@ -2952,6 +2892,7 @@ function cercaPunches(){
   var _pDone = false, _aDone = false;
   function _check(){ if(_pDone && _aDone){ showLoading(false); renderTabella(); } }
 
+  // Operatore base: forza filtro sul proprio dipendente
   var myEmp = _myEmpId();
   var dipFilter = (myEmp && myEmp !== '__NONE__') ? myEmp : (dip||null);
   if(myEmp === '__NONE__'){ _punches=[]; _assenzeTabella=[]; showLoading(false); renderTabella(); return; }
@@ -2963,20 +2904,24 @@ function cercaPunches(){
       _pDone = true; _check();
     })
     .withFailureHandler(function(e){ showLoading(false); toast(e.message,'err'); })
-    .getPunches(shopId, da||null, a||null, dipFilter);
+    .getPunches(getShopId(),da||null, a||null, dipFilter);
 
   google.script.run
     .withSuccessHandler(function(ass){ _assenzeTabella = ass||[]; _aDone=true; _check(); })
     .withFailureHandler(function(){ _assenzeTabella=[]; _aDone=true; _check(); })
-    .getAssenze(shopId, da||null, a||null, dipFilter);
+    .getAssenze(getShopId(),da||null, a||null, dipFilter);
 }
 
-
-
-function formatDate(str){
-  if(!str||str.length<10) return str;
-  var p = str.split('-');
-  return p[2]+'/'+p[1]+'/'+p[0];
+function resetFiltri(){
+  var now=new Date();
+  var y=now.getFullYear(),m=pad(now.getMonth()+1),d=pad(now.getDate());
+  document.getElementById('f-da').value   = y+'-'+m+'-01';
+  document.getElementById('f-a').value    = y+'-'+m+'-'+d;
+  document.getElementById('f-dip').value  = '';
+  document.getElementById('f-tipo').value = '';
+  _punches=[];
+  document.getElementById('tbl-punches').innerHTML='<div class="em">Usa i filtri e clicca Cerca</div>';
+  document.getElementById('cnt-punches').textContent='0';
 }
 
 function renderTabella(){
@@ -3119,14 +3064,13 @@ function esportaRiepilogoMensile(){
       // Raggruppa timbrature per dipendente e giorno
       var byEmp = {};
       dati.forEach(function(p){
-        var eid = p.empId || p.barcode || p.id;
-        if(!byEmp[eid]) byEmp[eid] = {
-          nome: (p.nome||'') + ' ' + (p.cognome||''),
+        if(!byEmp[p.id]) byEmp[p.id] = {
+          nome: p.nome+' '+p.cognome,
           giorni: {}
         };
         var gg = String(p.data).split('-')[2];
-        if(!byEmp[eid].giorni[gg]) byEmp[eid].giorni[gg] = [];
-        byEmp[eid].giorni[gg].push(p);
+        if(!byEmp[p.id].giorni[gg]) byEmp[p.id].giorni[gg] = [];
+        byEmp[p.id].giorni[gg].push(p);
       });
 
       // Recupera anche dipendenti per avere orario settato
@@ -3356,11 +3300,10 @@ function esportaRiepilogoPDF(){
 function _buildRiepilogoData(dati, dipList, anno, mese, lastDay){
   var byEmp = {};
   dati.forEach(function(p){
-    var eid = p.empId || p.barcode || p.id;
-    if(!byEmp[eid]) byEmp[eid] = { nome: (p.nome||'') + ' ' + (p.cognome||''), giorni: {} };
+    if(!byEmp[p.id]) byEmp[p.id] = { nome: p.nome+' '+p.cognome, giorni: {} };
     var gg = String(p.data).split('-')[2];
-    if(!byEmp[eid].giorni[gg]) byEmp[eid].giorni[gg] = [];
-    byEmp[eid].giorni[gg].push(p);
+    if(!byEmp[p.id].giorni[gg]) byEmp[p.id].giorni[gg] = [];
+    byEmp[p.id].giorni[gg].push(p);
   });
 
   var dipOrari = {};
@@ -3492,9 +3435,10 @@ function _stampaRiepilogoPDF(header, rows, colData, titolo, rowMeta){
     '.ei{color:#1e8449;font-weight:bold;display:block;font-size:7px;line-height:1.4;}',
     '.ui{color:#c0392b;display:block;font-size:7px;line-height:1.4;}',
     '.oi{color:#555;display:block;font-size:6px;border-top:1px dotted #ccc;margin-top:1px;padding-top:1px;}',
-    '@media print{@page{size:A4 portrait;margin:4mm;}#toolbar{display:none !important;}#wrap{padding:0;}th.cn,td.cn{position:static;}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}table{font-size:5px;}div.scroll{overflow:visible;}}'
+    '@media print{@page{size:A4 landscape;margin:6mm;}#toolbar{display:none !important;}#wrap{padding:0;}th.cn,td.cn{position:static;}table{font-size:6px;}}'
   ].join('');
 
+  // Costruisce intestazione colonne
   var thead = '<tr>';
   header.forEach(function(h, hi){
     if(hi === 0){
@@ -3509,6 +3453,7 @@ function _stampaRiepilogoPDF(header, rows, colData, titolo, rowMeta){
   });
   thead += '</tr>';
 
+  // Costruisce righe
   var tbody = '';
   rows.forEach(function(row, ri){
     var meta = rowMeta ? rowMeta[ri] : null;
@@ -3580,70 +3525,6 @@ function _stampaRiepilogoPDF(header, rows, colData, titolo, rowMeta){
     if(w){ w.document.write(html); w.document.close(); w.focus(); }
     else { toast('Abilita i popup del browser','err'); }
   }
-}
-
-
-function chiudiPunchModal(){
-  document.getElementById('punch-modal').style.display = 'none';
-  document.getElementById('pm-dip').disabled = false;
-}
-
-function salvaPunch(){
-  var dipId = document.getElementById('pm-dip').value;
-  var data  = document.getElementById('pm-data').value;
-  var ora   = document.getElementById('pm-ora').value;
-  var tipo  = document.getElementById('pm-tipo').value;
-  var nota  = document.getElementById('pm-nota').value;
-  if(!data||!ora||!dipId){ toast('Compila tutti i campi','err'); return; }
-  // Normalizza ora a HH:MM:SS
-  if(ora.length===5) ora = ora+':00';
-  showLoading(true);
-  if(_punchModalMode === 'add'){
-    google.script.run
-      .withSuccessHandler(function(r){
-        showLoading(false);
-        if(r.success){ chiudiPunchModal(); toast('Timbratura aggiunta ✅'); cercaPunches(); }
-        else toast(r.message,'err');
-      })
-      .withFailureHandler(function(e){ showLoading(false); toast(e.message,'err'); })
-      .addManualPunch({id:dipId,data:data,ora:ora,tipo:tipo,nota:nota});
-  } else {
-    google.script.run
-      .withSuccessHandler(function(r){
-        showLoading(false);
-        if(r.success){ chiudiPunchModal(); toast('Modificata ✅'); cercaPunches(); }
-        else toast(r.message,'err');
-      })
-      .withFailureHandler(function(e){ showLoading(false); toast(e.message,'err'); })
-      .correctPunch(_punchOrig.d, _punchOrig.i, _punchOrig.t, _punchOrig.o,
-                    {data:data,ora:ora,tipo:tipo,nota:nota});
-  }
-}
-
-function apriAggiungiPunch(){
-  _punchModalMode = 'add';
-  document.getElementById('punch-modal-title').textContent = '+ Aggiungi timbratura manuale';
-  var sel = document.getElementById('pm-dip');
-  sel.innerHTML = '';
-  (_dipendenti||[]).forEach(function(d){
-    var opt = document.createElement('option');
-    opt.value = d.id;
-    opt.textContent = (d.nome||'') + ' ' + (d.cognome||'') + ' (' + d.id + ')';
-    sel.appendChild(opt);
-  });
-  var now = new Date();
-  var pad = function(n){ return String(n).padStart(2,'0'); };
-  document.getElementById('pm-data').value = now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
-  document.getElementById('pm-ora').value  = pad(now.getHours())+':'+pad(now.getMinutes())+':00';
-  document.getElementById('pm-tipo').value = 'ENTRATA';
-  document.getElementById('pm-nota').value = '';
-  var od = document.getElementById('pm-orig-data'); if(od) od.value='';
-  var oi = document.getElementById('pm-orig-id');   if(oi) oi.value='';
-  var ot = document.getElementById('pm-orig-tipo'); if(ot) ot.value='';
-  var oo = document.getElementById('pm-orig-ora');  if(oo) oo.value='';
-  var modal = document.getElementById('punch-modal');
-  modal.style.display = 'flex';
-  void modal.offsetWidth;
 }
 
 
@@ -3885,8 +3766,6 @@ function cercaPunchesAvanzata(){
     oraTo:    document.getElementById('f-ora-a').value  || null
   };
   showLoading(true);
-  var _sId = getShopId();
-  if(!_sId){ showLoading(false); toast('Effettua il login','err'); return; }
   google.script.run
     .withSuccessHandler(function(dati){
       showLoading(false);
@@ -3894,21 +3773,23 @@ function cercaPunchesAvanzata(){
       renderTabella();
     })
     .withFailureHandler(function(e){ showLoading(false); toast(e.message,'err'); })
-    .getPunchesAvanzata(_sId, params);
+    .getPunchesAvanzata(getShopId(), params);
 }
 
 function resetFiltri(){
-  var now=new Date();
-  var y=now.getFullYear(),m=pad(now.getMonth()+1),d=pad(now.getDate());
-  document.getElementById('f-da').value   = y+'-'+m+'-01';
-  document.getElementById('f-a').value    = y+'-'+m+'-'+d;
-  document.getElementById('f-dip').value  = '';
-  document.getElementById('f-tipo').value = '';
+  ['f-da','f-a','f-nome','f-ora-da','f-ora-a'].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.value='';
+  });
+  ['f-dip','f-tipo','f-reparto'].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.value='';
+  });
   _punches=[];
   document.getElementById('tbl-punches').innerHTML='<div class="em">Usa i filtri e clicca Cerca</div>';
   document.getElementById('cnt-punches').textContent='0';
 }
 
+// ── DIPENDENTI — aggiorna addEmployee/updateEmployee per reparto
+var _origAbreDipModal = typeof abreDipModal !== 'undefined' ? abreDipModal : null;
 function _patchDipModal(id){
   var emp = id ? _dipendenti.filter(function(d){ return d.id===id; })[0] : null;
   var rEl = document.getElementById('dm-reparto');
@@ -4325,106 +4206,6 @@ window.addEventListener('appinstalled', function() {
   _installPrompt = null;
 });
 
-
-
-
-// ── ZOOM ─────────────────────────────────────────────────────────
-var _zoomLevels = ['', 'zoom-lg', 'zoom-xl'];
-var _zoomIdx = 0;
-(function(){
-  var saved = localStorage.getItem('_timb_zoom');
-  if(saved) _zoomIdx = parseInt(saved)||0;
-  if(_zoomIdx > 0) document.body.classList.add(_zoomLevels[_zoomIdx]);
-  var btn = document.getElementById('btn-zoom-hdr');
-  if(btn) btn.textContent = _zoomIdx===0?'🔍':_zoomIdx===1?'🔎':'🔍-';
-})();
-
-function toggleZoom(){
-  var body = document.body;
-  _zoomLevels.forEach(function(c){ if(c) body.classList.remove(c); });
-  _zoomIdx = (_zoomIdx + 1) % _zoomLevels.length;
-  if(_zoomLevels[_zoomIdx]) body.classList.add(_zoomLevels[_zoomIdx]);
-  localStorage.setItem('_timb_zoom', _zoomIdx);
-  var btn = document.getElementById('btn-zoom-hdr');
-  if(btn) btn.textContent = _zoomIdx===0?'🔍':_zoomIdx===1?'🔎':'🔍-';
-}
-
-// ── SUPERUSER ─────────────────────────────────────────────────────
-var _superUnlocked = false;
-(function(){
-  if(localStorage.getItem('_timb_super')==='1') _applyUnlock();
-})();
-
-function _applyUnlock(){
-  _superUnlocked = true;
-  document.querySelectorAll('.nb-locked').forEach(function(b){
-    b.classList.add('unlocked');
-    // Rimuovi 🔒 dal testo
-    b.innerHTML = b.innerHTML.replace(' 🔒','');
-  });
-  var btn = document.getElementById('btn-super-hdr');
-  if(btn){ btn.textContent = '🔓'; btn.style.background='#27ae60'; btn.title='Funzioni sbloccate'; }
-}
-
-function apriSuperUser(){
-  if(_superUnlocked){
-    // Già sbloccato - ri-blocca
-    _superUnlocked = false;
-    localStorage.removeItem('_timb_super');
-    document.querySelectorAll('.nb-locked').forEach(function(b){
-      b.classList.remove('unlocked');
-      if(!b.innerHTML.includes('🔒')) b.innerHTML = b.innerHTML.replace('</button>','') + ' 🔒</button>';
-    });
-    var btn = document.getElementById('btn-super-hdr');
-    if(btn){ btn.textContent='🔓'; btn.style.background='#e67e22'; btn.title='Sblocca funzioni'; }
-    toast('Funzioni bloccate');
-    return;
-  }
-  var m = document.getElementById('superuser-modal');
-  m.style.display = 'flex';
-  setTimeout(function(){ document.getElementById('su-pass').focus(); }, 100);
-}
-
-function chiudiSuperUser(){
-  document.getElementById('superuser-modal').style.display = 'none';
-  document.getElementById('su-pass').value = '';
-  document.getElementById('su-err').style.display = 'none';
-}
-
-function confermaSuperUser(){
-  var pass = document.getElementById('su-pass').value;
-  if(!pass){ document.getElementById('su-err').style.display='block'; return; }
-  // Verifica password tramite GAS
-  google.script.run
-    .withSuccessHandler(function(r){
-      if(r && r.success){
-        chiudiSuperUser();
-        _applyUnlock();
-        localStorage.setItem('_timb_super','1');
-        toast('Funzioni sbloccate ✅');
-      } else {
-        document.getElementById('su-err').style.display = 'block';
-        document.getElementById('su-err').textContent = 'Password errata';
-      }
-    })
-    .withFailureHandler(function(){
-      document.getElementById('su-err').style.display = 'block';
-    })
-    .loginOperatore(_session ? _session.username : '', pass);
-}
-
-function navToLocked(id, btn){
-  if(_superUnlocked){ navTo(id, btn); return; }
-  // Non sbloccato - mostra messaggio
-  toast('Sezione bloccata — usa 🔓 SuperUser per sbloccare', 'err');
-}
-
-// Mostra bottone SuperUser quando loggato come admin
-function _aggiornaBtnSuper(){
-  var btn = document.getElementById('btn-super-hdr');
-  // btn-super sempre visibile nell'header admin
-}
-
 </script>
 
 <!-- ════════════════════════════════════════════════════════
@@ -4583,8 +4364,6 @@ function _aggiornaBtnSuper(){
         <option value="dark">🌙 Dark</option>
         <option value="light">☀️ Light</option>
       </select>
-      <button class="hbtn" onclick="toggleZoom()" id="btn-zoom-hdr" title="Zoom testo" style="background:#2980b9;color:#fff;">🔍</button>
-      <button class="hbtn" onclick="apriSuperUser()" id="btn-super-hdr" title="Sblocca funzioni" style="background:#e67e22;color:#fff;">🔓</button>
       <button class="hbtn hbtn-g" onclick="apriCambiaPassword()">🔑 Password</button>
       <button class="hbtn hbtn-r" onclick="logout()">Esci</button>
       <button class="hbtn hbtn-r" onclick="chiudiAdmin()" style="background:rgba(231,76,60,.2);border-color:rgba(231,76,60,.4);">✕ Chiudi</button>
@@ -4603,36 +4382,36 @@ function _aggiornaBtnSuper(){
       <button class="nb" onclick="navTo('calendario',this)">
         <span class="ni">📅</span> Calendario
       </button>
-      <button class="nb nb-locked" id="nb-tabella" onclick="navToLocked('tabella',this)">
-        <span class="ni">📋</span> Tabella 🔒
+      <button class="nb" onclick="navTo('tabella',this)">
+        <span class="ni">📋</span> Tabella
       </button>
       <button class="nb" onclick="navTo('dipendenti',this)">
         <span class="ni">👥</span> Dipendenti
       </button>
       <div class="sid-sep"></div>
-      <button class="nb nb-locked" id="nb-export" onclick="navToLocked('export',this)">
-        <span class="ni">⬇️</span> Esporta 🔒
+      <button class="nb" onclick="navTo('export',this)">
+        <span class="ni">⬇️</span> Esporta
       </button>
       <div class="sid-sep"></div>
-      <button class="nb nb-locked" id="nb-ore" onclick="navToLocked('ore',this)">
-        <span class="ni">⏱</span> Ore & Straord. 🔒
+      <button class="nb" onclick="navTo('ore',this)">
+        <span class="ni">⏱</span> Ore & Straord.
       </button>
-      <button class="nb nb-locked" id="nb-anomalie" onclick="navToLocked('anomalie',this)">
-        <span class="ni">⚠️</span> Anomalie 🔒
-      </button>
-      <div class="sid-sep"></div>
-      <button class="nb nb-locked" id="nb-ferie" onclick="navToLocked('ferie',this)">
-        <span class="ni">🏖</span> Ferie/Permessi 🔒
-      </button>
-      <button class="nb nb-locked" id="nb-turni" onclick="navToLocked('turni',this)">
-        <span class="ni">📅</span> Turni 🔒
-      </button>
-      <button class="nb nb-locked" id="nb-report" onclick="navToLocked('report',this)">
-        <span class="ni">📬</span> Report Email 🔒
+      <button class="nb" onclick="navTo('anomalie',this)">
+        <span class="ni">⚠️</span> Anomalie
       </button>
       <div class="sid-sep"></div>
-      <button class="nb nb-locked" id="nb-impostazioni" onclick="navToLocked('impostazioni',this)">
-        <span class="ni">⚙️</span> Impostazioni 🔒
+      <button class="nb" onclick="navTo('ferie',this)">
+        <span class="ni">🏖</span> Ferie/Permessi
+      </button>
+      <button class="nb" onclick="navTo('turni',this)">
+        <span class="ni">📅</span> Turni
+      </button>
+      <button class="nb" onclick="navTo('report',this)">
+        <span class="ni">📬</span> Report Email
+      </button>
+      <div class="sid-sep"></div>
+      <button class="nb" onclick="navTo('impostazioni',this)">
+        <span class="ni">⚙️</span> Impostazioni
       </button>
     </div>
 
@@ -5240,7 +5019,8 @@ function _aggiornaBtnSuper(){
 
 
   <!-- MODAL: Modifica/Aggiungi timbratura -->
-  <div id="punch-modal" style="display:none;position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.6);align-items:center;justify-content:center;padding:16px;">
+  <div id="punch-modal" style="display:none;position:fixed;inset:0;z-index:800;
+    background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px;">
     <div style="background:var(--srf);border:1px solid var(--brd);border-radius:14px;
       padding:24px;width:100%;max-width:400px;">
       <div style="font-family:var(--head);font-size:.95rem;font-weight:800;margin-bottom:18px;" id="punch-modal-title">Timbratura</div>
@@ -5353,21 +5133,6 @@ function _aggiornaBtnSuper(){
 </div>
 <div id="det-overlay" style="position:fixed;inset:0;z-index:699;display:none;"
   onclick="chiudiDet()"></div>
-
-
-<!-- MODAL SUPERUSER -->
-<div id="superuser-modal" style="display:none;position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.7);align-items:center;justify-content:center;">
-  <div style="background:var(--srf);border:1px solid var(--brd);border-radius:14px;padding:28px;width:min(340px,90vw);text-align:center;">
-    <div style="font-size:1.1rem;font-weight:800;margin-bottom:6px;">🔓 Sblocca funzioni</div>
-    <div style="font-size:.8rem;color:var(--sub);margin-bottom:16px;">Inserisci la password admin per sbloccare tutte le sezioni</div>
-    <input type="password" id="su-pass" class="fi" style="width:100%;margin-bottom:14px;" placeholder="Password admin...">
-    <div style="display:flex;gap:8px;justify-content:center;">
-      <button class="hbtn hbtn-b" onclick="confermaSuperUser()">Sblocca</button>
-      <button class="hbtn" onclick="chiudiSuperUser()">Annulla</button>
-    </div>
-    <div id="su-err" style="color:#e74c3c;font-size:.75rem;margin-top:10px;display:none;">Password errata</div>
-  </div>
-</div>
 
 
 </body>
