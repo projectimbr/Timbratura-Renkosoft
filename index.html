@@ -738,6 +738,40 @@ async function getEmployees(shopId) {
   } catch(e) { return []; }
 }
 
+async function saveEmployee(shopId, emp) {
+  if(!shopId) return { success:false, message:'shopId mancante' };
+  try {
+    const exists = await _sb('employees?shop_id=eq.' + shopId + '&id=eq.' + String(emp.id), {});
+    const body = {
+      shop_id: shopId,
+      id: String(emp.id),
+      nome: emp.nome || '',
+      cognome: emp.cognome || '',
+      ruolo: emp.ruolo || '',
+      colore: emp.colore || '#2980b9',
+      orario: emp.orario || {},
+      giorni_riposo: emp.giorniRiposo || []
+    };
+    if(exists && exists.length) {
+      await _sb('employees?shop_id=eq.' + shopId + '&id=eq.' + String(emp.id),
+        { method:'PATCH', prefer:'return=minimal', body });
+    } else {
+      await _sb('employees', { method:'POST', prefer:'return=minimal', body });
+    }
+    return { success:true };
+  } catch(e) { return { success:false, message:e.message }; }
+}
+
+async function deleteEmployee(shopId, empId) {
+  if(!shopId) return { success:false };
+  try {
+    await _sb('employees?shop_id=eq.' + shopId + '&id=eq.' + String(empId),
+      { method:'DELETE', prefer:'return=minimal' });
+    return { success:true };
+  } catch(e) { return { success:false, message:e.message }; }
+}
+
+
 async function addManualPunch(shopId, punch) {
   if(!shopId) return { success:false };
   try {
@@ -993,7 +1027,9 @@ const _SB_FNS = {
   getTurni: getTurni,
   getReportEmail: getReportEmail,
   buildXLSXBase64: buildXLSXBase64,
-  getShopSettingsPublic: getShopSettingsPublic
+  getShopSettingsPublic: getShopSettingsPublic,
+  saveEmployee: saveEmployee,
+  deleteEmployee: deleteEmployee
 };
 
 function _sbRun() {
