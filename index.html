@@ -662,350 +662,53 @@ input[type=date].fi{color-scheme:dark;}
 <!-- SPINNER -->
 <div id="spinner"><div class="spin-ring"></div></div>
 
-<!-- ═══════════════════════════════════════════════
-     SUPABASE LAYER — sostituisce google.script.run
-     ═══════════════════════════════════════════════ -->
+<!-- SUPABASE LAYER -->
 <script>
 'use strict';
-const _SB_URL = 'https://ayljuhtujbjdalsvpkas.supabase.co';
-const _SB_KEY = 'sb_publishable_9e_DCKh2M25EmZA5ZxVzfA_HMnKM7ek';
+const _SB_URL='https://ayljuhtujbjdalsvpkas.supabase.co',_SB_KEY='sb_publishable_9e_DCKh2M25EmZA5ZxVzfA_HMnKM7ek';
+async function _sb(path,opts){opts=opts||{};const r=await fetch(_SB_URL+'/rest/v1/'+path,{method:opts.method||'GET',headers:{'apikey':_SB_KEY,'Authorization':'Bearer '+_SB_KEY,'Content-Type':'application/json','Prefer':opts.prefer||'return=representation'},body:opts.body!==undefined?JSON.stringify(opts.body):undefined});if(!r.ok)throw new Error(await r.text());const t=await r.text();return t?JSON.parse(t):null;}
+async function loginOperatore(u,p){try{const us=await _sb('shop_users?username=eq.'+encodeURIComponent(u)+'&attivo=eq.true');if(!us||!us.length)return{success:false,message:'Utente non trovato'};const uu=us[0];if(uu.password!==p)return{success:false,message:'Password errata'};const sh=await _sb('shops?id=eq.'+uu.shop_id);const s=sh&&sh[0];return{success:true,userId:uu.id,username:uu.username,nome:uu.nome,ruolo:uu.ruolo,shopId:uu.shop_id,shopNome:s?s.nome:uu.shop_id,shopSettings:s?s.settings:{},employeeId:uu.employee_id||null,permessi:uu.ruolo==='admin'?{dashboard:true,tabella:true,calendario:true,dipendenti:true,export:true,ore:true,anomalie:true,ferie:true,turni:true,report:true,impostazioni:true,eliminaTimbrature:true,modificaTimbrature:true}:(uu.permessi||{})}}catch(e){return{success:false,message:e.message};}}
+async function getEmployees(shopId){if(!shopId)return[];try{const r=await _sb('employees?shop_id=eq.'+shopId+'&order=cognome');return(r||[]).map(e=>(({id:e.id,nome:e.nome,cognome:e.cognome,ruolo:e.ruolo,colore:e.colore,orario:e.orario||{},giorniRiposo:e.giorni_riposo||[]})));}catch(e){return[];}}
+async function getEmployeesForCache(s){return getEmployees(s);}
+async function saveEmployee(shopId,emp){if(!shopId)return{success:false};try{const body={shop_id:shopId,id:String(emp.id),nome:emp.nome||'',cognome:emp.cognome||'',ruolo:emp.ruolo||'',colore:emp.colore||'#2980b9',orario:emp.orario||{},giorni_riposo:emp.giorniRiposo||[]};const ex=await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+String(emp.id));if(ex&&ex.length)await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+String(emp.id),{method:'PATCH',prefer:'return=minimal',body});else await _sb('employees',{method:'POST',prefer:'return=minimal',body});return{success:true};}catch(e){return{success:false,message:e.message};}}
+async function deleteEmployee(shopId,eid){if(!shopId)return{success:false};try{await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+String(eid),{method:'DELETE',prefer:'return=minimal'});return{success:true};}catch(e){return{success:false,message:e.message};}}
+async function timbratura(shopId,barcode){if(!shopId)return{success:false,message:'ShopId mancante'};try{const emps=await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+barcode);const emp=emps&&emps[0];if(!emp)return{success:false,message:'Badge non riconosciuto'};const oggi=new Date().toISOString().split('T')[0];const ass=await _sb('assenze?shop_id=eq.'+shopId+'&emp_id=eq.'+barcode+'&data=lte.'+oggi+'&data_fine=gte.'+oggi);if(ass&&ass.length){const t=ass[0].tipo;if(t==='FERIE'||t==='PERMESSO'||t==='MALATTIA')return{success:false,message:emp.nome+' ha '+t+' oggi'};}const last=await _sb('punches?shop_id=eq.'+shopId+'&emp_id=eq.'+barcode+'&data=eq.'+oggi+'&order=ora.desc&limit=1');const tipo=(!last||!last[0]||last[0].tipo==='USCITA')?'ENTRATA':'USCITA';const ora=new Date().toTimeString().split(' ')[0];await _sb('punches',{method:'POST',prefer:'return=minimal',body:{shop_id:shopId,emp_id:String(barcode),barcode:String(barcode),nome:emp.nome,cognome:emp.cognome,data:oggi,ora:ora,tipo:tipo}});return{success:true,tipo,nome:emp.nome,cognome:emp.cognome,ora,data:oggi};}catch(e){return{success:false,message:e.message};}}
+async function syncPunches(){return{success:true};}
+async function getPunches(shopId,dateFrom,dateTo,empId){if(!shopId)return[];try{let q='punches?shop_id=eq.'+shopId+'&order=data.desc,ora.desc';if(dateFrom)q+='&data=gte.'+dateFrom;if(dateTo)q+='&data=lte.'+dateTo;if(empId)q+='&emp_id=eq.'+empId;const r=await _sb(q);return(r||[]).map(p=>(({id:p.id,empId:p.emp_id,barcode:p.barcode,nome:p.nome,cognome:p.cognome,data:p.data,ora:p.ora?p.ora.substring(0,8):'',tipo:p.tipo,nota:p.nota||'',manuale:p.manuale||false})));}catch(e){return[];}}
+async function getPunchesAvanzata(shopId,params){params=params||{};const all=await getPunches(shopId,params.dateFrom||null,params.dateTo||null,params.empId||null);return all.filter(p=>{if(params.tipo&&p.tipo!==params.tipo)return false;if(params.nome&&!(p.nome+' '+p.cognome).toLowerCase().includes(params.nome.toLowerCase()))return false;return true;});}
+async function deletePunch(shopId,id){if(!shopId)return{success:false};try{await _sb('punches?id=eq.'+id,{method:'DELETE',prefer:'return=minimal'});return{success:true};}catch(e){return{success:false,message:e.message};}}
+async function addManualPunch(shopId,punch){if(!shopId)return{success:false};try{const emps=await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+punch.id);const emp=emps&&emps[0];await _sb('punches',{method:'POST',prefer:'return=minimal',body:{shop_id:shopId,emp_id:String(punch.id),barcode:String(punch.id),nome:emp?emp.nome:'',cognome:emp?emp.cognome:'',data:punch.data,ora:punch.ora,tipo:punch.tipo,nota:punch.nota||'',manuale:true}});return{success:true};}catch(e){return{success:false,message:e.message};}}
+async function correctPunch(shopId,oD,oI,oT,oO,nd){if(!shopId)return{success:false};try{let q='punches?shop_id=eq.'+shopId+'&emp_id=eq.'+oI+'&data=eq.'+oD+'&tipo=eq.'+oT;if(oO)q+='&ora=like.'+oO.substring(0,5)+'*';const rows=await _sb(q);if(!rows||!rows.length)return{success:false,message:'Non trovata'};const upd={};if(nd.data)upd.data=nd.data;if(nd.ora)upd.ora=nd.ora;if(nd.tipo)upd.tipo=nd.tipo;if(nd.nota!==undefined)upd.nota=nd.nota;await _sb('punches?id=eq.'+rows[0].id,{method:'PATCH',prefer:'return=minimal',body:upd});return{success:true};}catch(e){return{success:false,message:e.message};}}
+async function getAssenze(shopId,dateFrom,dateTo,empId){if(!shopId)return[];try{let q='assenze?shop_id=eq.'+shopId+'&order=data.desc';if(dateFrom)q+='&data=gte.'+dateFrom;if(dateTo)q+='&data_fine=lte.'+dateTo;if(empId)q+='&emp_id=eq.'+empId;const r=await _sb(q);return(r||[]).map(a=>(({id:a.id,empId:a.emp_id,nome:a.nome,cognome:a.cognome,data:a.data,dataFine:a.data_fine,tipo:a.tipo,nota:a.nota||''})));}catch(e){return[];}}
+async function getAssenzeMensili(shopId,year,month){const pad=n=>String(n).padStart(2,'0'),prefix=year+'-'+pad(month),lastDay=new Date(year,month,0).getDate(),da=prefix+'-01',a=prefix+'-'+pad(lastDay);const all=await getAssenze(shopId,da,a,null);const byEmp={};all.forEach(ass=>{if(!byEmp[ass.empId])byEmp[ass.empId]={nome:(ass.nome||'')+' '+(ass.cognome||''),giorni:{},note:{}};const di=new Date(ass.data),df=new Date(ass.dataFine||ass.data);for(let d=new Date(di);d<=df;d.setDate(d.getDate()+1)){const ds=d.toISOString().split('T')[0];if(ds>=da&&ds<=a){const gg=ds.split('-')[2];byEmp[ass.empId].giorni[gg]=ass.tipo;byEmp[ass.empId].note[gg]=ass.nota||'';}};});return{byEmp,lastDay};}
+async function saveAssenza(shopId,ass){if(!shopId)return{success:false};try{const emps=await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+ass.empId);const emp=emps&&emps[0];if(!emp)return{success:false,message:'Dipendente non trovato'};await _sb('assenze',{method:'POST',prefer:'return=minimal',body:{shop_id:shopId,emp_id:String(ass.empId),nome:emp.nome,cognome:emp.cognome,data:ass.data,data_fine:ass.dataFine||ass.data,tipo:ass.tipo,nota:ass.nota||''}});return{success:true};}catch(e){return{success:false,message:e.message};}}
+async function deleteAssenza(shopId,id){if(!shopId)return{success:false};try{await _sb('assenze?id=eq.'+id,{method:'DELETE',prefer:'return=minimal'});return{success:true};}catch(e){return{success:false,message:e.message};}}
+async function getCalendarData(shopId,year,month){if(!shopId)return{};const pad=n=>String(n).padStart(2,'0'),da=year+'-'+pad(month)+'-01',a=year+'-'+pad(month)+'-'+pad(new Date(year,month,0).getDate());try{const[punches,assenze]=await Promise.all([getPunches(shopId,da,a,null),getAssenze(shopId,da,a,null)]);const bd={};punches.forEach(p=>{const gg=p.data.split('-')[2];if(!bd[gg])bd[gg]={entrate:0,uscite:0,ids:[],assenze:[]};if(p.tipo==='ENTRATA')bd[gg].entrate++;if(p.tipo==='USCITA')bd[gg].uscite++;if(!bd[gg].ids.includes(p.empId))bd[gg].ids.push(p.empId);});assenze.forEach(a=>{const gg=a.data.split('-')[2];if(!bd[gg])bd[gg]={entrate:0,uscite:0,ids:[],assenze:[]};bd[gg].assenze.push({id:a.empId,nome:a.nome,cognome:a.cognome,tipo:a.tipo,nota:a.nota||''});});return bd;}catch(e){return{};}}
+async function getOggiStats(shopId){const oggi=new Date().toISOString().split('T')[0],punch=await getPunches(shopId,oggi,oggi,null),pre={},usc={};punch.forEach(p=>{if(p.tipo==='ENTRATA'){pre[p.empId]=p;delete usc[p.empId];}else{usc[p.empId]=p;delete pre[p.empId];}});return{data:oggi,totale:punch.length,presenti:Object.values(pre),usciti:Object.values(usc),punches:punch};}
+async function getRiepilogoOre(shopId,year,month){if(!shopId)return{employees:[],lastDay:30,soglia:8};const pad=n=>String(n).padStart(2,'0'),prefix=year+'-'+pad(month),lastDay=new Date(year,month,0).getDate(),soglia=8*60,fmt=m=>Math.floor(m/60)+'h'+pad(m%60);try{const punches=await getPunches(shopId,prefix+'-01',prefix+'-'+pad(lastDay),null);const byEmp={};punches.forEach(p=>{const eid=p.empId;if(!byEmp[eid])byEmp[eid]={nome:(p.nome||'')+' '+(p.cognome||''),giorni:{}};const gg=p.data.split('-')[2];if(!byEmp[eid].giorni[gg])byEmp[eid].giorni[gg]=[];byEmp[eid].giorni[gg].push(p);});const result=Object.keys(byEmp).map(eid=>{const emp=byEmp[eid];let totMin=0,totExtra=0,giorniLav=0,nAnom=0;const giorni={};for(let g=1;g<=lastDay;g++){const gg=pad(g),ps=emp.giorni[gg]||[];if(!ps.length){giorni[gg]=null;continue;}const sorted=ps.slice().sort((a,b)=>a.ora<b.ora?-1:1);let minG=0,lastIn=null;sorted.forEach(p=>{if(p.tipo==='ENTRATA')lastIn=p.ora;else if(p.tipo==='USCITA'&&lastIn){const[ah,am]=lastIn.split(':'),[bh,bm]=p.ora.split(':');minG+=(+bh*60+ +bm)-(+ah*60+ +am);lastIn=null;}});const entr=ps.filter(x=>x.tipo==='ENTRATA'),usc=ps.filter(x=>x.tipo==='USCITA'),anom=entr.length!==usc.length;totMin+=minG;if(minG>0)giorniLav++;const extra=Math.max(0,minG-soglia);totExtra+=extra;if(anom)nAnom++;giorni[gg]={min:minG,ore:fmt(minG),extra:extra>0?fmt(extra):'',anom,in:entr.length?entr.sort((a,b)=>a.ora<b.ora?-1:1)[0].ora.substring(0,5):'',out:usc.length?usc.sort((a,b)=>a.ora<b.ora?-1:1)[usc.length-1].ora.substring(0,5):''};}return{id:eid,nome:emp.nome,totOre:fmt(totMin),totMin,straord:totExtra>0?fmt(totExtra):'-',giorniLav,nAnom,giorni};});result.sort((a,b)=>a.nome<b.nome?-1:1);return{employees:result,lastDay,soglia:8};}catch(e){return{employees:[],lastDay:30,soglia:8};}}
+async function getAnomalie(shopId,dateFrom,dateTo){const punches=await getPunches(shopId,dateFrom,dateTo,null),byKey={};punches.forEach(p=>{const k=p.data+'|'+p.empId;if(!byKey[k])byKey[k]=[];byKey[k].push(p);});const an=[];Object.keys(byKey).forEach(k=>{const ps=byKey[k],nome=ps[0].nome+' '+ps[0].cognome,data=ps[0].data,eid=ps[0].empId,entr=ps.filter(p=>p.tipo==='ENTRATA'),usc=ps.filter(p=>p.tipo==='USCITA');if(entr.length>usc.length)an.push({tipo:'ENTRATA_SENZA_USCITA',label:'Entrata senza uscita',data,id:eid,nome,dettaglio:entr.length+' entr, '+usc.length+' usc'});if(usc.length>entr.length)an.push({tipo:'USCITA_SENZA_ENTRATA',label:'Uscita senza entrata',data,id:eid,nome,dettaglio:usc.length+' usc, '+entr.length+' entr'});});an.sort((a,b)=>a.data<b.data?1:-1);return an;}
+async function getReparti(){return[];}
+async function getTurni(){return[];}
+async function saveTurno(){return{success:true};}
+async function deleteTurno(){return{success:true};}
+async function confrontaTurni(){return{};}
+async function getReportEmail(){return null;}
+async function setReportEmail(){return{success:true};}
+async function inviaReportMensile(){return{success:false,message:'Non disponibile'};}
+async function inviaReportSettimanale(){return{success:false,message:'Non disponibile'};}
+async function salvaImpostazioni(shopId,settings){if(!shopId)return{success:false};try{await _sb('shops?id=eq.'+shopId,{method:'PATCH',prefer:'return=minimal',body:{settings:settings}});return{success:true};}catch(e){return{success:false,message:e.message};}}
+async function setOreSoglia(shopId,ore){if(!shopId)return{success:false};try{const sh=await _sb('shops?id=eq.'+shopId);const s=(sh&&sh[0]&&sh[0].settings)||{};s.oreSoglia=ore;await _sb('shops?id=eq.'+shopId,{method:'PATCH',prefer:'return=minimal',body:{settings:s}});return{success:true};}catch(e){return{success:false,message:e.message};}}
+async function getShopSettingsPublic(shopId){try{const r=await _sb('shops?id=eq.'+shopId);const s=r&&r[0];return s?{success:true,settings:s.settings||{},nome:s.nome}:{success:false};}catch(e){return{success:false};}}
+async function warmUp(){return true;}
+async function reverseGeocode(){return'';}
+async function buildXLSXBase64(){return null;}
+async function buildRiepilogoXLSX(){return null;}
 
-// ── Base REST helper ──────────────────────────────────────
-async function _sb(path, opts) {
-  opts = opts || {};
-  const res = await fetch(_SB_URL + '/rest/v1/' + path, {
-    method: opts.method || 'GET',
-    headers: {
-      'apikey': _SB_KEY,
-      'Authorization': 'Bearer ' + _SB_KEY,
-      'Content-Type': 'application/json',
-      'Prefer': opts.prefer || 'return=representation'
-    },
-    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined
-  });
-  if(!res.ok) throw new Error(await res.text());
-  const t = await res.text();
-  return t ? JSON.parse(t) : null;
-}
-
-// ── AUTH ──────────────────────────────────────────────────
-async function loginOperatore(username, password) {
-  try {
-    const users = await _sb('shop_users?username=eq.' + encodeURIComponent(username) + '&attivo=eq.true');
-    if(!users || !users.length) return {success:false,message:'Utente non trovato'};
-    const u = users[0];
-    if(u.password !== password) return {success:false,message:'Password errata'};
-    const shops = await _sb('shops?id=eq.' + u.shop_id);
-    const shop = shops && shops[0];
-    return {
-      success:true, userId:u.id, username:u.username, nome:u.nome,
-      ruolo:u.ruolo, shopId:u.shop_id, shopNome:shop?shop.nome:u.shop_id,
-      shopSettings:shop?shop.settings:{}, employeeId:u.employee_id||null,
-      permessi:u.ruolo==='admin'?{dashboard:true,tabella:true,calendario:true,dipendenti:true,export:true,ore:true,anomalie:true,ferie:true,turni:true,report:true,impostazioni:true,eliminaTimbrature:true,modificaTimbrature:true}:(u.permessi||{})
-    };
-  } catch(e) { return {success:false,message:e.message}; }
-}
-
-// ── DIPENDENTI ────────────────────────────────────────────
-async function getEmployees(shopId) {
-  if(!shopId) return [];
-  try {
-    const r = await _sb('employees?shop_id=eq.' + shopId + '&order=cognome');
-    return (r||[]).map(e => ({id:e.id,nome:e.nome,cognome:e.cognome,ruolo:e.ruolo,colore:e.colore,orario:e.orario||{},giorniRiposo:e.giorni_riposo||[]}));
-  } catch(e) { return []; }
-}
-
-async function getEmployeesForCache(shopId) { return getEmployees(shopId); }
-
-async function saveEmployee(shopId, emp) {
-  if(!shopId) return {success:false};
-  try {
-    const body = {shop_id:shopId,id:String(emp.id),nome:emp.nome||'',cognome:emp.cognome||'',ruolo:emp.ruolo||'',colore:emp.colore||'#2980b9',orario:emp.orario||{},giorni_riposo:emp.giorniRiposo||[]};
-    const ex = await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+String(emp.id));
-    if(ex&&ex.length) await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+String(emp.id),{method:'PATCH',prefer:'return=minimal',body});
-    else await _sb('employees',{method:'POST',prefer:'return=minimal',body});
-    return {success:true};
-  } catch(e) { return {success:false,message:e.message}; }
-}
-
-async function deleteEmployee(shopId, empId) {
-  if(!shopId) return {success:false};
-  try { await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+String(empId),{method:'DELETE',prefer:'return=minimal'}); return {success:true}; }
-  catch(e) { return {success:false,message:e.message}; }
-}
-
-// ── TIMBRATURA ────────────────────────────────────────────
-async function timbratura(shopId, barcode) {
-  if(!shopId) return {success:false,message:'ShopId mancante'};
-  try {
-    const emps = await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+barcode);
-    const emp = emps&&emps[0];
-    if(!emp) return {success:false,message:'Badge non riconosciuto'};
-    const oggi = new Date().toISOString().split('T')[0];
-    const ass = await _sb('assenze?shop_id=eq.'+shopId+'&emp_id=eq.'+barcode+'&data=lte.'+oggi+'&data_fine=gte.'+oggi);
-    if(ass&&ass.length) {
-      const t=ass[0].tipo;
-      if(t==='FERIE'||t==='PERMESSO'||t==='MALATTIA') return {success:false,message:emp.nome+' ha '+t+' oggi'};
-    }
-    const last = await _sb('punches?shop_id=eq.'+shopId+'&emp_id=eq.'+barcode+'&data=eq.'+oggi+'&order=ora.desc&limit=1');
-    const tipo = (!last||!last[0]||last[0].tipo==='USCITA')?'ENTRATA':'USCITA';
-    const ora = new Date().toTimeString().split(' ')[0];
-    await _sb('punches',{method:'POST',prefer:'return=minimal',body:{shop_id:shopId,emp_id:String(barcode),barcode:String(barcode),nome:emp.nome,cognome:emp.cognome,data:oggi,ora:ora,tipo:tipo}});
-    return {success:true,tipo,nome:emp.nome,cognome:emp.cognome,ora,data:oggi};
-  } catch(e) { return {success:false,message:e.message}; }
-}
-
-async function syncPunches() { return {success:true}; }
-
-// ── PUNCHES ───────────────────────────────────────────────
-async function getPunches(shopId,dateFrom,dateTo,empId) {
-  if(!shopId) return [];
-  try {
-    let q='punches?shop_id=eq.'+shopId+'&order=data.desc,ora.desc';
-    if(dateFrom) q+='&data=gte.'+dateFrom;
-    if(dateTo)   q+='&data=lte.'+dateTo;
-    if(empId)    q+='&emp_id=eq.'+empId;
-    const r=await _sb(q);
-    return (r||[]).map(p=>(({id:p.id,empId:p.emp_id,barcode:p.barcode,nome:p.nome,cognome:p.cognome,data:p.data,ora:p.ora?p.ora.substring(0,8):'',tipo:p.tipo,nota:p.nota||'',manuale:p.manuale||false})));
-  } catch(e) { return []; }
-}
-
-async function getPunchesAvanzata(shopId,params) {
-  params=params||{};
-  const all=await getPunches(shopId,params.dateFrom||null,params.dateTo||null,params.empId||null);
-  return all.filter(p=>{
-    if(params.tipo&&p.tipo!==params.tipo) return false;
-    if(params.nome&&!(p.nome+' '+p.cognome).toLowerCase().includes(params.nome.toLowerCase())) return false;
-    return true;
-  });
-}
-
-async function deletePunch(shopId,punchId) {
-  if(!shopId) return {success:false};
-  try { await _sb('punches?id=eq.'+punchId,{method:'DELETE',prefer:'return=minimal'}); return {success:true}; }
-  catch(e) { return {success:false,message:e.message}; }
-}
-
-async function addManualPunch(shopId,punch) {
-  if(!shopId) return {success:false};
-  try {
-    const emps=await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+punch.id);
-    const emp=emps&&emps[0];
-    await _sb('punches',{method:'POST',prefer:'return=minimal',body:{shop_id:shopId,emp_id:String(punch.id),barcode:String(punch.id),nome:emp?emp.nome:'',cognome:emp?emp.cognome:'',data:punch.data,ora:punch.ora,tipo:punch.tipo,nota:punch.nota||'',manuale:true}});
-    return {success:true};
-  } catch(e) { return {success:false,message:e.message}; }
-}
-
-async function correctPunch(shopId,origData,origId,origTipo,origOra,nd) {
-  if(!shopId) return {success:false};
-  try {
-    let q='punches?shop_id=eq.'+shopId+'&emp_id=eq.'+origId+'&data=eq.'+origData+'&tipo=eq.'+origTipo;
-    if(origOra) q+='&ora=like.'+origOra.substring(0,5)+'*';
-    const rows=await _sb(q);
-    if(!rows||!rows.length) return {success:false,message:'Non trovata'};
-    const upd={};
-    if(nd.data) upd.data=nd.data; if(nd.ora) upd.ora=nd.ora;
-    if(nd.tipo) upd.tipo=nd.tipo; if(nd.nota!==undefined) upd.nota=nd.nota;
-    await _sb('punches?id=eq.'+rows[0].id,{method:'PATCH',prefer:'return=minimal',body:upd});
-    return {success:true};
-  } catch(e) { return {success:false,message:e.message}; }
-}
-
-// ── ASSENZE ───────────────────────────────────────────────
-async function getAssenze(shopId,dateFrom,dateTo,empId) {
-  if(!shopId) return [];
-  try {
-    let q='assenze?shop_id=eq.'+shopId+'&order=data.desc';
-    if(dateFrom) q+='&data=gte.'+dateFrom;
-    if(dateTo)   q+='&data_fine=lte.'+dateTo;
-    if(empId)    q+='&emp_id=eq.'+empId;
-    const r=await _sb(q);
-    return (r||[]).map(a=>(({id:a.id,empId:a.emp_id,nome:a.nome,cognome:a.cognome,data:a.data,dataFine:a.data_fine,tipo:a.tipo,nota:a.nota||''})));
-  } catch(e) { return []; }
-}
-
-async function getAssenzeMensili(shopId,year,month) {
-  const pad=n=>String(n).padStart(2,'0');
-  const prefix=year+'-'+pad(month);
-  const lastDay=new Date(year,month,0).getDate();
-  const da=prefix+'-01', a=prefix+'-'+pad(lastDay);
-  const all=await getAssenze(shopId,da,a,null);
-  const byEmp={};
-  all.forEach(ass=>{
-    if(!byEmp[ass.empId]) byEmp[ass.empId]={nome:(ass.nome||'')+' '+(ass.cognome||''),giorni:{},note:{}};
-    const di=new Date(ass.data), df=new Date(ass.dataFine||ass.data);
-    for(let d=new Date(di);d<=df;d.setDate(d.getDate()+1)){
-      const ds=d.toISOString().split('T')[0];
-      if(ds>=da&&ds<=a){
-        const gg=ds.split('-')[2];
-        byEmp[ass.empId].giorni[gg]=ass.tipo;
-        byEmp[ass.empId].note[gg]=ass.nota||'';
-      }
-    }
-  });
-  return {byEmp,lastDay};
-}
-
-async function saveAssenza(shopId,ass) {
-  if(!shopId) return {success:false};
-  try {
-    const emps=await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+ass.empId);
-    const emp=emps&&emps[0];
-    if(!emp) return {success:false,message:'Dipendente non trovato'};
-    await _sb('assenze',{method:'POST',prefer:'return=minimal',body:{shop_id:shopId,emp_id:String(ass.empId),nome:emp.nome,cognome:emp.cognome,data:ass.data,data_fine:ass.dataFine||ass.data,tipo:ass.tipo,nota:ass.nota||''}});
-    return {success:true};
-  } catch(e) { return {success:false,message:e.message}; }
-}
-
-async function deleteAssenza(shopId,assId) {
-  if(!shopId) return {success:false};
-  try { await _sb('assenze?id=eq.'+assId,{method:'DELETE',prefer:'return=minimal'}); return {success:true}; }
-  catch(e) { return {success:false,message:e.message}; }
-}
-
-// ── CALENDARIO & STATS ────────────────────────────────────
-async function getCalendarData(shopId,year,month) {
-  if(!shopId) return {};
-  const pad=n=>String(n).padStart(2,'0');
-  const da=year+'-'+pad(month)+'-01', a=year+'-'+pad(month)+'-'+pad(new Date(year,month,0).getDate());
-  try {
-    const [punches,assenze]=await Promise.all([getPunches(shopId,da,a,null),getAssenze(shopId,da,a,null)]);
-    const bd={};
-    punches.forEach(p=>{const gg=p.data.split('-')[2];if(!bd[gg])bd[gg]={entrate:0,uscite:0,ids:[],assenze:[]};if(p.tipo==='ENTRATA')bd[gg].entrate++;if(p.tipo==='USCITA')bd[gg].uscite++;if(!bd[gg].ids.includes(p.empId))bd[gg].ids.push(p.empId);});
-    assenze.forEach(a=>{const gg=a.data.split('-')[2];if(!bd[gg])bd[gg]={entrate:0,uscite:0,ids:[],assenze:[]};bd[gg].assenze.push({id:a.empId,nome:a.nome,cognome:a.cognome,tipo:a.tipo,nota:a.nota||''});});
-    return bd;
-  } catch(e) { return {}; }
-}
-
-async function getOggiStats(shopId) {
-  const oggi=new Date().toISOString().split('T')[0];
-  const punch=await getPunches(shopId,oggi,oggi,null);
-  const pre={},usc={};
-  punch.forEach(p=>{if(p.tipo==='ENTRATA'){pre[p.empId]=p;delete usc[p.empId];}else{usc[p.empId]=p;delete pre[p.empId];}});
-  return {data:oggi,totale:punch.length,presenti:Object.values(pre),usciti:Object.values(usc),punches:punch};
-}
-
-// ── ORE & ANOMALIE ────────────────────────────────────────
-async function getRiepilogoOre(shopId,year,month) {
-  if(!shopId) return {employees:[],lastDay:30,soglia:8};
-  const pad=n=>String(n).padStart(2,'0');
-  const prefix=year+'-'+pad(month), lastDay=new Date(year,month,0).getDate(), soglia=8*60;
-  const fmt=m=>Math.floor(m/60)+'h'+pad(m%60);
-  try {
-    const punches=await getPunches(shopId,prefix+'-01',prefix+'-'+pad(lastDay),null);
-    const byEmp={};
-    punches.forEach(p=>{const eid=p.empId;if(!byEmp[eid])byEmp[eid]={nome:(p.nome||'')+' '+(p.cognome||''),giorni:{}};const gg=p.data.split('-')[2];if(!byEmp[eid].giorni[gg])byEmp[eid].giorni[gg]=[];byEmp[eid].giorni[gg].push(p);});
-    const result=Object.keys(byEmp).map(eid=>{
-      const emp=byEmp[eid];let totMin=0,totExtra=0,giorniLav=0,nAnom=0;const giorni={};
-      for(let g=1;g<=lastDay;g++){
-        const gg=pad(g),ps=emp.giorni[gg]||[];
-        if(!ps.length){giorni[gg]=null;continue;}
-        const sorted=ps.slice().sort((a,b)=>a.ora<b.ora?-1:1);let minG=0,lastIn=null;
-        sorted.forEach(p=>{if(p.tipo==='ENTRATA')lastIn=p.ora;else if(p.tipo==='USCITA'&&lastIn){const[ah,am,as]=lastIn.split(':');const[bh,bm,bs]=p.ora.split(':');minG+=(+bh*60+ +bm)-(+ah*60+ +am);lastIn=null;}});
-        const entr=ps.filter(x=>x.tipo==='ENTRATA'),usc=ps.filter(x=>x.tipo==='USCITA');
-        const anom=entr.length!==usc.length;totMin+=minG;if(minG>0)giorniLav++;
-        const extra=Math.max(0,minG-soglia);totExtra+=extra;if(anom)nAnom++;
-        giorni[gg]={min:minG,ore:fmt(minG),extra:extra>0?fmt(extra):'',anom,in:entr.length?entr.sort((a,b)=>a.ora<b.ora?-1:1)[0].ora.substring(0,5):'',out:usc.length?usc.sort((a,b)=>a.ora<b.ora?-1:1)[usc.length-1].ora.substring(0,5):''};
-      }
-      return {id:eid,nome:emp.nome,totOre:fmt(totMin),totMin,straord:totExtra>0?fmt(totExtra):'-',giorniLav,nAnom,giorni};
-    });
-    result.sort((a,b)=>a.nome<b.nome?-1:1);
-    return {employees:result,lastDay,soglia:8};
-  } catch(e) { return {employees:[],lastDay:30,soglia:8}; }
-}
-
-async function getAnomalie(shopId,dateFrom,dateTo) {
-  const punches=await getPunches(shopId,dateFrom,dateTo,null);
-  const byKey={};
-  punches.forEach(p=>{const k=p.data+'|'+p.empId;if(!byKey[k])byKey[k]=[];byKey[k].push(p);});
-  const an=[];
-  Object.keys(byKey).forEach(k=>{
-    const ps=byKey[k],nome=ps[0].nome+' '+ps[0].cognome,data=ps[0].data,eid=ps[0].empId;
-    const entr=ps.filter(p=>p.tipo==='ENTRATA'),usc=ps.filter(p=>p.tipo==='USCITA');
-    if(entr.length>usc.length) an.push({tipo:'ENTRATA_SENZA_USCITA',label:'Entrata senza uscita',data,id:eid,nome,dettaglio:entr.length+' entr, '+usc.length+' usc'});
-    if(usc.length>entr.length) an.push({tipo:'USCITA_SENZA_ENTRATA',label:'Uscita senza entrata',data,id:eid,nome,dettaglio:usc.length+' usc, '+entr.length+' entr'});
-  });
-  an.sort((a,b)=>a.data<b.data?1:-1);
-  return an;
-}
-
-// ── REPARTI & TURNI (stub) ────────────────────────────────
-async function getReparti(shopId) { return []; }
-async function getTurni(shopId) { return []; }
-async function saveTurno(shopId,turno) { return {success:true}; }
-async function deleteTurno(shopId,id) { return {success:true}; }
-async function confrontaTurni(shopId,year,month) { return {}; }
-
-// ── REPORT ────────────────────────────────────────────────
-async function getReportEmail(shopId) { return null; }
-async function setReportEmail(shopId,email) { return {success:true}; }
-async function inviaReportMensile(shopId) { return {success:false,message:'Non disponibile'}; }
-async function inviaReportSettimanale(shopId) { return {success:false,message:'Non disponibile'}; }
-
-// ── IMPOSTAZIONI ──────────────────────────────────────────
-async function salvaImpostazioni(shopId,settings) {
-  if(!shopId) return {success:false};
-  try {
-    await _sb('shops?id=eq.'+shopId,{method:'PATCH',prefer:'return=minimal',body:{settings:settings}});
-    return {success:true};
-  } catch(e) { return {success:false,message:e.message}; }
-}
-
-async function setOreSoglia(shopId,ore) {
-  if(!shopId) return {success:false};
-  try {
-    const shop=await _sb('shops?id=eq.'+shopId);
-    const s=(shop&&shop[0]&&shop[0].settings)||{};
-    s.oreSoglia=ore;
-    await _sb('shops?id=eq.'+shopId,{method:'PATCH',prefer:'return=minimal',body:{settings:s}});
-    return {success:true};
-  } catch(e) { return {success:false,message:e.message}; }
-}
-
-async function getShopSettingsPublic(shopId) {
-  try {
-    const r=await _sb('shops?id=eq.'+shopId);
-    const s=r&&r[0];
-    return s?{success:true,settings:s.settings||{},nome:s.nome}:{success:false};
-  } catch(e) { return {success:false}; }
-}
-
-// ── MISC ──────────────────────────────────────────────────
-async function warmUp() { return true; }
-async function syncPunches() { return {success:true}; }
-async function reverseGeocode(lat,lng) { return ''; }
-async function buildXLSXBase64() { return null; }
-async function buildRiepilogoXLSX() { return null; }
-
-// ── WRAPPER google.script.run ─────────────────────────────
-const _ALL_FNS = {
-  loginOperatore,getEmployees,getEmployeesForCache,saveEmployee,deleteEmployee,
-  timbratura,syncPunches,getPunches,getPunchesAvanzata,deletePunch,addManualPunch,correctPunch,
-  getAssenze,getAssenzeMensili,saveAssenza,deleteAssenza,
-  getCalendarData,getOggiStats,getRiepilogoOre,getAnomalie,
-  getReparti,getTurni,saveTurno,deleteTurno,confrontaTurni,
-  getReportEmail,setReportEmail,inviaReportMensile,inviaReportSettimanale,
-  salvaImpostazioni,setOreSoglia,getShopSettingsPublic,
-  warmUp,reverseGeocode,buildXLSXBase64,buildRiepilogoXLSX
-};
-
-function _sbRun() {
-  var _ok=function(r){return r;}, _err=function(e){console.error(e);};
-  var obj={
-    withSuccessHandler:function(fn){_ok=fn;return obj;},
-    withFailureHandler:function(fn){_err=fn;return obj;}
-  };
-  Object.keys(_ALL_FNS).forEach(function(name){
-    obj[name]=function(){
-      var args=Array.prototype.slice.call(arguments);
-      _ALL_FNS[name].apply(null,args).then(_ok).catch(_err);
-    };
-  });
-  return obj;
-}
-
-const google={script:{run:new Proxy({},{get:function(_,p){return _sbRun()[p]||function(){};}})}};
+const _ALL={loginOperatore,getEmployees,getEmployeesForCache,saveEmployee,deleteEmployee,timbratura,syncPunches,getPunches,getPunchesAvanzata,deletePunch,addManualPunch,correctPunch,getAssenze,getAssenzeMensili,saveAssenza,deleteAssenza,getCalendarData,getOggiStats,getRiepilogoOre,getAnomalie,getReparti,getTurni,saveTurno,deleteTurno,confrontaTurni,getReportEmail,setReportEmail,inviaReportMensile,inviaReportSettimanale,salvaImpostazioni,setOreSoglia,getShopSettingsPublic,warmUp,reverseGeocode,buildXLSXBase64,buildRiepilogoXLSX};
+function _run(){var ok=function(r){return r;},err=function(e){console.error(e);};var o={withSuccessHandler:function(f){ok=f;return o;},withFailureHandler:function(f){err=f;return o;}};Object.keys(_ALL).forEach(function(n){o[n]=function(){var a=Array.prototype.slice.call(arguments);_ALL[n].apply(null,a).then(ok).catch(err);};}); return o;}
+const google={script:{run:new Proxy({},{get:function(_,p){return _run()[p]||function(){};}})}};
 </script>
+
 <script>
 // ── IMPOSTAZIONI INIETTATE DAL SERVER (nessun localStorage) ──
 // GAS inietta le settings salvate direttamente nel template al caricamento
