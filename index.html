@@ -971,45 +971,53 @@ async function getShopSettingsPublic(shopId) {
 
 // ── WRAPPER google.script.run compatibile ────────────────
 const _SB_FNS = {
-  loginOperatore, getEmployees, addManualPunch, timbratura,
-  getPunches, getPunchesAvanzata, deletePunch, correctPunch,
-  getAssenze, saveAssenza, deleteAssenza, getCalendarData,
-  getRiepilogoOre, getAnomalie, getOggiStats, warmUp,
-  syncPunches, getEmployeesForCache, getReparti, getTurni,
-  getReportEmail, buildXLSXBase64, getShopSettingsPublic
+  loginOperatore: loginOperatore,
+  getEmployees: getEmployees,
+  addManualPunch: addManualPunch,
+  timbratura: timbratura,
+  getPunches: getPunches,
+  getPunchesAvanzata: getPunchesAvanzata,
+  deletePunch: deletePunch,
+  correctPunch: correctPunch,
+  getAssenze: getAssenze,
+  saveAssenza: saveAssenza,
+  deleteAssenza: deleteAssenza,
+  getCalendarData: getCalendarData,
+  getRiepilogoOre: getRiepilogoOre,
+  getAnomalie: getAnomalie,
+  getOggiStats: getOggiStats,
+  warmUp: warmUp,
+  syncPunches: syncPunches,
+  getEmployeesForCache: getEmployeesForCache,
+  getReparti: getReparti,
+  getTurni: getTurni,
+  getReportEmail: getReportEmail,
+  buildXLSXBase64: buildXLSXBase64,
+  getShopSettingsPublic: getShopSettingsPublic
 };
 
-function _makeRunner(method) {
+function _sbRun() {
   var _onSuccess = function(r){ return r; };
   var _onFailure = function(e){ console.error(e); };
-  var runner = {
-    withSuccessHandler: function(fn){ _onSuccess = fn; return runner; },
-    withFailureHandler: function(fn){ _onFailure = fn; return runner; }
+  var obj = {
+    withSuccessHandler: function(fn){ _onSuccess = fn; return obj; },
+    withFailureHandler: function(fn){ _onFailure = fn; return obj; }
   };
-  runner[method] = function() {
-    var args = Array.prototype.slice.call(arguments);
-    var fn = _SB_FNS[method];
-    (fn ? fn.apply(null, args) : Promise.resolve(null))
-      .then(_onSuccess).catch(_onFailure);
-  };
-  return new Proxy(runner, {
-    get: function(target, prop) {
-      if(prop in target) return target[prop];
-      return function() {
-        var args = Array.prototype.slice.call(arguments);
-        var fn2 = _SB_FNS[prop];
-        (fn2 ? fn2.apply(null, args) : Promise.resolve(null))
-          .then(_onSuccess).catch(_onFailure);
-      };
-    }
+  Object.keys(_SB_FNS).forEach(function(name) {
+    obj[name] = function() {
+      var args = Array.prototype.slice.call(arguments);
+      (_SB_FNS[name].apply(null, args))
+        .then(_onSuccess).catch(function(e){ _onFailure(e); });
+    };
   });
+  return obj;
 }
 
 const google = {
   script: {
     run: new Proxy({}, {
-      get: function(_, method) {
-        return _makeRunner(method);
+      get: function(_, prop) {
+        return _sbRun()[prop] || function(){};
       }
     })
   }
