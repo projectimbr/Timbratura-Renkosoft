@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0b1623">
 <link rel="manifest" href="?page=manifest" crossorigin="use-credentials">
-<title>Timbrature</title>
+<title>Timbrature v1790152955</title>
 <!-- Google Fonts: usa system fonts per compatibilità CSP GAS -->
 <style>
 /* ── TOKENS ─────────────────────────────────────────────── */
@@ -699,6 +699,7 @@ async function inviaReportSettimanale(){return{success:false,message:'Non dispon
 async function salvaImpostazioni(shopId,settings){if(!shopId)return{success:false};try{await _sb('shops?id=eq.'+shopId,{method:'PATCH',prefer:'return=minimal',body:{settings:settings}});return{success:true};}catch(e){return{success:false,message:e.message};}}
 async function setOreSoglia(shopId,ore){if(!shopId)return{success:false};try{const sh=await _sb('shops?id=eq.'+shopId);const s=(sh&&sh[0]&&sh[0].settings)||{};s.oreSoglia=ore;await _sb('shops?id=eq.'+shopId,{method:'PATCH',prefer:'return=minimal',body:{settings:s}});return{success:true};}catch(e){return{success:false,message:e.message};}}
 async function getShopSettingsPublic(shopId){try{const r=await _sb('shops?id=eq.'+shopId);const s=r&&r[0];return s?{success:true,settings:s.settings||{},nome:s.nome}:{success:false};}catch(e){return{success:false};}}
+function formatDate(str){if(!str||str.length<10)return str;var p=str.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
 async function warmUp(){return true;}
 async function reverseGeocode(){return'';}
 async function buildXLSXBase64(){return null;}
@@ -2564,18 +2565,20 @@ function apriGiorno(dateStr, dayNum){
     body.innerHTML = html;
   }
 
+  var shopId = getShopId();
+  if(!shopId){ _punches2=[]; _assenze2=[]; _renderGiorno(); return; }
   var myEmpG = _myEmpId();
   var dipG = (myEmpG && myEmpG !== '__NONE__') ? myEmpG : null;
 
   google.script.run
     .withSuccessHandler(function(res){ _punches2 = _filterBySession(res)||[]; _renderGiorno(); })
     .withFailureHandler(function(){ _punches2 = []; _renderGiorno(); })
-    .getPunches(getShopId(),dateStr, dateStr, dipG);
+    .getPunches(shopId, dateStr, dateStr, dipG);
 
   google.script.run
     .withSuccessHandler(function(res){ _assenze2 = _filterBySession(res)||[]; _renderGiorno(); })
     .withFailureHandler(function(){ _assenze2 = []; _renderGiorno(); })
-    .getAssenze(getShopId(),dateStr, dateStr, dipG);
+    .getAssenze(shopId, dateStr, dateStr, dipG);
 }
 
 function chiudiDet(){
@@ -3453,7 +3456,7 @@ function caricaReparti(){
       });
     })
     .withFailureHandler(function(){})
-    .getReparti(getShopId())();
+    .getReparti(getShopId());
 }
 
 // ── RICERCA AVANZATA ───────────────────────────────────────────
