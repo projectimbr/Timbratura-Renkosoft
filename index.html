@@ -988,6 +988,11 @@ async function getOggiStats(shopId) {
   return { data:oggi, totale:punch.length, presenti:Object.values(presenti), usciti:Object.values(usciti), punches:punch };
 }
 
+async function saveTurno(shopId, turno) { return { success:true }; }
+async function deleteTurno(shopId, turnoId) { return { success:true }; }
+async function setReportEmail(shopId, email) { return { success:true }; }
+async function getAssenzeMensili(shopId, year, month) { return { byEmp:{}, lastDay:30 }; }
+
 async function warmUp() { return true; }
 async function syncPunches() { return { success:true }; }
 async function getEmployeesForCache(shopId) { return await getEmployees(shopId); }
@@ -1029,7 +1034,17 @@ const _SB_FNS = {
   buildXLSXBase64: buildXLSXBase64,
   getShopSettingsPublic: getShopSettingsPublic,
   saveEmployee: saveEmployee,
-  deleteEmployee: deleteEmployee
+  deleteEmployee: deleteEmployee,
+  getReparti: getReparti,
+  getTurni: getTurni,
+  saveTurno: saveTurno,
+  deleteTurno: deleteTurno,
+  getReportEmail: getReportEmail,
+  setReportEmail: setReportEmail,
+  getAssenzeMensili: getAssenzeMensili,
+  getRiepilogoOre: getRiepilogoOre,
+  getAnomalie: getAnomalie,
+  buildXLSXBase64: buildXLSXBase64
 };
 
 function _sbRun() {
