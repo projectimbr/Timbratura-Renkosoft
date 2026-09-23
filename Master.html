@@ -532,44 +532,38 @@ async function deleteShopUser(masterPass, userId) {
 
 // Wrapper google.script.run compatibile
 const _SB_FNS = {
-  checkMaster, setMasterPassword, getShops, saveShop, deleteShop,
-  getShopUsers, saveShopUser, deleteShopUser
+  checkMaster: checkMaster,
+  setMasterPassword: setMasterPassword,
+  getShops: getShops,
+  saveShop: saveShop,
+  deleteShop: deleteShop,
+  getShopUsers: getShopUsers,
+  saveShopUser: saveShopUser,
+  deleteShopUser: deleteShopUser
 };
 
-function _makeRunner(method) {
-  let _onSuccess = function(r){ return r; };
-  let _onFailure = function(e){ console.error(e); };
-  const runner = {
-    withSuccessHandler: function(fn){ _onSuccess = fn; return runner; },
-    withFailureHandler: function(fn){ _onFailure = fn; return runner; }
+function _sbRun() {
+  var _onSuccess = function(r){ return r; };
+  var _onFailure = function(e){ console.error(e); };
+  var obj = {
+    withSuccessHandler: function(fn){ _onSuccess = fn; return obj; },
+    withFailureHandler: function(fn){ _onFailure = fn; return obj; }
   };
-  // Aggiunge il metodo direttamente come funzione chiamabile
-  runner[method] = function() {
-    const args = Array.prototype.slice.call(arguments);
-    const fn = _SB_FNS[method];
-    (fn ? fn.apply(null, args) : Promise.resolve(null))
-      .then(_onSuccess).catch(_onFailure);
-  };
-  // Proxy per intercettare chiamata diretta: .checkMaster(...)
-  return new Proxy(runner, {
-    get: function(target, prop) {
-      if(prop in target) return target[prop];
-      // Se chiamano un metodo non presente, lo eseguiamo
-      return function() {
-        const args = Array.prototype.slice.call(arguments);
-        const fn2 = _SB_FNS[prop];
-        (fn2 ? fn2.apply(null, args) : Promise.resolve(null))
-          .then(_onSuccess).catch(_onFailure);
-      };
-    }
+  Object.keys(_SB_FNS).forEach(function(name) {
+    obj[name] = function() {
+      var args = Array.prototype.slice.call(arguments);
+      (_SB_FNS[name].apply(null, args))
+        .then(_onSuccess).catch(function(e){ _onFailure(e); });
+    };
   });
+  return obj;
 }
 
 const google = {
   script: {
     run: new Proxy({}, {
-      get: function(_, method) {
-        return _makeRunner(method);
+      get: function(_, prop) {
+        return _sbRun()[prop] || function(){};
       }
     })
   }
