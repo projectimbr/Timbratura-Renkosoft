@@ -970,38 +970,46 @@ async function getShopSettingsPublic(shopId) {
 }
 
 // ── WRAPPER google.script.run compatibile ────────────────
-// Trasforma le chiamate async in callback-style come google.script.run
+const _SB_FNS = {
+  loginOperatore, getEmployees, addManualPunch, timbratura,
+  getPunches, getPunchesAvanzata, deletePunch, correctPunch,
+  getAssenze, saveAssenza, deleteAssenza, getCalendarData,
+  getRiepilogoOre, getAnomalie, getOggiStats, warmUp,
+  syncPunches, getEmployeesForCache, getReparti, getTurni,
+  getReportEmail, buildXLSXBase64, getShopSettingsPublic
+};
+
+function _makeRunner(method) {
+  var _onSuccess = function(r){ return r; };
+  var _onFailure = function(e){ console.error(e); };
+  var runner = {
+    withSuccessHandler: function(fn){ _onSuccess = fn; return runner; },
+    withFailureHandler: function(fn){ _onFailure = fn; return runner; }
+  };
+  runner[method] = function() {
+    var args = Array.prototype.slice.call(arguments);
+    var fn = _SB_FNS[method];
+    (fn ? fn.apply(null, args) : Promise.resolve(null))
+      .then(_onSuccess).catch(_onFailure);
+  };
+  return new Proxy(runner, {
+    get: function(target, prop) {
+      if(prop in target) return target[prop];
+      return function() {
+        var args = Array.prototype.slice.call(arguments);
+        var fn2 = _SB_FNS[prop];
+        (fn2 ? fn2.apply(null, args) : Promise.resolve(null))
+          .then(_onSuccess).catch(_onFailure);
+      };
+    }
+  });
+}
+
 const google = {
   script: {
     run: new Proxy({}, {
-      get(_, method) {
-        let _onSuccess = r => r;
-        let _onFailure = e => console.error(e);
-        const chain = {
-          withSuccessHandler(fn) { _onSuccess = fn; return chain; },
-          withFailureHandler(fn) { _onFailure = fn; return chain; },
-        };
-        // Funzioni disponibili
-        const fns = {
-          loginOperatore, getEmployees, addManualPunch, timbratura,
-          getPunches, getPunchesAvanzata, deletePunch, correctPunch,
-          getAssenze, saveAssenza, deleteAssenza, getCalendarData,
-          getRiepilogoOre, getAnomalie, getOggiStats, warmUp,
-          syncPunches, getEmployeesForCache, getReparti, getTurni,
-          getReportEmail, buildXLSXBase64, getShopSettingsPublic
-        };
-        return new Proxy(chain, {
-          get(_, prop) {
-            if(prop in chain) return chain[prop];
-            // chiamata diretta: google.script.run.nomeFunc(args)
-            if(prop === 'withSuccessHandler' || prop === 'withFailureHandler') return chain[prop];
-            return null;
-          },
-          apply(_, __, args) {
-            (fns[method] ? fns[method](...args) : Promise.resolve(null))
-              .then(_onSuccess).catch(_onFailure);
-          }
-        });
+      get: function(_, method) {
+        return _makeRunner(method);
       }
     })
   }
