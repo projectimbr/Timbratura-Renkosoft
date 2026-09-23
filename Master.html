@@ -531,27 +531,45 @@ async function deleteShopUser(masterPass, userId) {
 }
 
 // Wrapper google.script.run compatibile
+const _SB_FNS = {
+  checkMaster, setMasterPassword, getShops, saveShop, deleteShop,
+  getShopUsers, saveShopUser, deleteShopUser
+};
+
+function _makeRunner(method) {
+  let _onSuccess = function(r){ return r; };
+  let _onFailure = function(e){ console.error(e); };
+  const runner = {
+    withSuccessHandler: function(fn){ _onSuccess = fn; return runner; },
+    withFailureHandler: function(fn){ _onFailure = fn; return runner; }
+  };
+  // Aggiunge il metodo direttamente come funzione chiamabile
+  runner[method] = function() {
+    const args = Array.prototype.slice.call(arguments);
+    const fn = _SB_FNS[method];
+    (fn ? fn.apply(null, args) : Promise.resolve(null))
+      .then(_onSuccess).catch(_onFailure);
+  };
+  // Proxy per intercettare chiamata diretta: .checkMaster(...)
+  return new Proxy(runner, {
+    get: function(target, prop) {
+      if(prop in target) return target[prop];
+      // Se chiamano un metodo non presente, lo eseguiamo
+      return function() {
+        const args = Array.prototype.slice.call(arguments);
+        const fn2 = _SB_FNS[prop];
+        (fn2 ? fn2.apply(null, args) : Promise.resolve(null))
+          .then(_onSuccess).catch(_onFailure);
+      };
+    }
+  });
+}
+
 const google = {
   script: {
     run: new Proxy({}, {
-      get(_, method) {
-        let _onSuccess = r => r;
-        let _onFailure = e => console.error(e);
-        const fns = { checkMaster, setMasterPassword, getShops, saveShop, deleteShop, getShopUsers, saveShopUser, deleteShopUser };
-        const chain = {
-          withSuccessHandler(fn) { _onSuccess = fn; return chain; },
-          withFailureHandler(fn) { _onFailure = fn; return chain; },
-        };
-        return new Proxy(chain, {
-          get(_, prop) {
-            if(prop in chain) return chain[prop];
-            return null;
-          },
-          apply(_, __, args) {
-            (fns[method] ? fns[method](...args) : Promise.resolve(null))
-              .then(_onSuccess).catch(_onFailure);
-          }
-        });
+      get: function(_, method) {
+        return _makeRunner(method);
       }
     })
   }
