@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RenkoSoft — Pannello Master</title>
+<style>
+:root{
+  --bg:#0b1623;--srf:#111e2e;--srf2:#162032;--brd:#1e3048;
+  --txt:#e8f0fe;--sub:#6b829a;--acc:#2980b9;--grn:#1abc9c;
+  --org:#e67e22;--red:#e74c3c;--pur:#9b59b6;
+  --r:12px;--font:'Inter',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--txt);font-family:var(--font);min-height:100vh;}
+.hdr{background:var(--srf);border-bottom:1px solid var(--brd);padding:0 24px;height:52px;
+  display:flex;align-items:center;justify-content:space-between;}
+.hdr-logo{font-weight:800;font-size:1rem;letter-spacing:.5px;}
+.hdr-sub{font-size:.72rem;color:var(--sub);}
+.layout{display:flex;min-height:calc(100vh - 52px);}
+.sidebar{width:200px;background:var(--srf);border-right:1px solid var(--brd);padding:16px 0;flex-shrink:0;}
+.nb{display:flex;align-items:center;gap:10px;width:100%;padding:10px 18px;border:none;background:none;
+  color:var(--sub);font-size:.82rem;cursor:pointer;text-align:left;border-left:3px solid transparent;}
+.nb:hover{color:var(--txt);background:rgba(255,255,255,.04);}
+.nb.active{color:var(--txt);border-left-color:var(--acc);background:rgba(41,128,185,.1);font-weight:600;}
+.main{flex:1;padding:24px;overflow-y:auto;}
+.page{display:none;} .page.show{display:block;}
+.page-title{font-size:1.1rem;font-weight:800;margin-bottom:18px;display:flex;align-items:center;gap:8px;}
+.card{background:var(--srf);border:1px solid var(--brd);border-radius:var(--r);padding:20px;margin-bottom:16px;}
+.card-title{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--sub);margin-bottom:14px;}
+.fi{background:var(--srf2);border:1px solid var(--brd);color:var(--txt);padding:8px 12px;
+  border-radius:8px;font-size:.82rem;width:100%;outline:none;font-family:var(--font);}
+.fi:focus{border-color:var(--acc);}
+.row{display:flex;gap:10px;margin-bottom:10px;align-items:center;}
+.row label{font-size:.72rem;color:var(--sub);white-space:nowrap;min-width:90px;}
+.btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.82rem;font-weight:600;}
+.btn-acc{background:var(--acc);color:#fff;}
+.btn-grn{background:var(--grn);color:#fff;}
+.btn-red{background:rgba(231,76,60,.15);color:var(--red);border:1px solid rgba(231,76,60,.3);}
+.btn-sec{background:rgba(255,255,255,.07);color:var(--txt);}
+.btn-sm{padding:4px 10px;font-size:.72rem;}
+.tbl{width:100%;border-collapse:collapse;font-size:.78rem;}
+.tbl th{color:var(--sub);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;
+  padding:6px 8px;border-bottom:1px solid var(--brd);text-align:left;}
+.tbl td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.04);}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.68rem;font-weight:700;}
+.badge-admin{background:rgba(41,128,185,.2);color:#5dade2;}
+.badge-base{background:rgba(26,188,156,.15);color:var(--grn);}
+.badge-off{background:rgba(231,76,60,.15);color:var(--red);}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;
+  align-items:center;justify-content:center;padding:16px;}
+.modal-bg.show{display:flex;}
+.modal{background:var(--srf);border:1px solid var(--brd);border-radius:14px;padding:24px;
+  width:100%;max-width:480px;max-height:90vh;overflow-y:auto;}
+.modal-title{font-weight:800;font-size:.95rem;margin-bottom:18px;}
+.perm-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
+.perm-item{display:flex;align-items:center;gap:6px;font-size:.75rem;}
+.sep{border:none;border-top:1px solid var(--brd);margin:16px 0;}
+.em{color:var(--sub);font-size:.78rem;padding:20px;text-align:center;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:#1a3a5c;border:1px solid var(--acc);border-radius:8px;padding:10px 20px;
+  font-size:.8rem;z-index:999;display:none;}
+.toast.err{background:#3a1a1a;border-color:var(--red);}
+/* Login */
+#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;
+  background:var(--bg);}
+.login-box{background:var(--srf);border:1px solid var(--brd);border-radius:16px;
+  padding:36px;width:320px;text-align:center;}
+.login-box h1{font-size:1.2rem;font-weight:800;margin-bottom:6px;}
+.login-box p{font-size:.72rem;color:var(--sub);margin-bottom:24px;}
+.login-err{color:var(--red);font-size:.72rem;margin-top:8px;display:none;}
+#app-screen{display:none;}
+
+/* Toggle impostazioni nel modal negozio */
+.setting-row{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06);}
+.setting-lbl{font-size:.8rem;font-weight:600;color:var(--txt);}
+.setting-sub{font-size:.67rem;color:var(--sub);margin-top:2px;}
+.tgl-m{position:relative;width:40px;height:22px;flex-shrink:0;}
+.tgl-m input{opacity:0;width:0;height:0;}
+.tgl-sl-m{position:absolute;inset:0;background:rgba(255,255,255,.12);border-radius:22px;
+  transition:.3s;cursor:pointer;}
+.tgl-sl-m:before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;
+  background:#fff;border-radius:50%;transition:.3s;}
+.tgl-m input:checked+.tgl-sl-m{background:var(--acc);}
+.tgl-m input:checked+.tgl-sl-m:before{transform:translateX(18px);}
+
+/* Switcher accesso rapido (stile selettore account) */
+.switcher-wrap{position:relative;}
+.switcher-btn{display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:20px;
+  border:1px solid var(--brd);background:var(--srf2);color:var(--txt);font-size:.78rem;
+  font-weight:600;cursor:pointer;font-family:var(--font);}
+.switcher-btn:hover{border-color:var(--acc);}
+.switcher-btn .chev{font-size:.65rem;color:var(--sub);transition:transform .15s;}
+.switcher-btn.open .chev{transform:rotate(180deg);}
+.switcher-menu{position:absolute;top:calc(100% + 8px);right:0;width:280px;
+  background:var(--srf);border:1px solid var(--brd);border-radius:14px;
+  box-shadow:0 12px 40px rgba(0,0,0,.5);z-index:200;display:none;overflow:hidden;}
+.switcher-menu.show{display:block;}
+.switcher-item{display:flex;align-items:center;gap:10px;padding:11px 16px;
+  cursor:pointer;font-size:.82rem;color:var(--txt);transition:background .12s;}
+.switcher-item:hover{background:rgba(255,255,255,.05);}
+.switcher-item .si{font-size:1rem;width:20px;text-align:center;flex-shrink:0;}
+.switcher-item .sl{flex:1;}
+.switcher-item .check{color:var(--acc);font-size:.85rem;}
+.switcher-sep{height:1px;background:var(--brd);margin:4px 0;}
+.switcher-new{color:var(--acc);font-weight:700;}
+.switcher-empty{padding:14px 16px;font-size:.74rem;color:var(--sub);text-align:center;}
+.filtro-banner{display:none;align-items:center;gap:10px;background:rgba(41,128,185,.1);
+  border:1px solid rgba(41,128,185,.3);border-radius:10px;padding:9px 14px;margin-bottom:14px;
+  font-size:.78rem;color:var(--txt);}
+.filtro-banner.show{display:flex;}
+.filtro-banner b{color:#5dade2;}
+.filtro-banner a{margin-left:auto;color:var(--sub);cursor:pointer;font-size:.72rem;text-decoration:underline;}
+.filtro-banner a:hover{color:var(--txt);}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div style="font-size:2rem;margin-bottom:8px;">🏢</div>
+    <h1>RenkoSoft Master</h1>
+    <p>Pannello gestione negozi</p>
+    <input type="password" id="master-pass" class="fi" placeholder="Password master"
+      style="margin-bottom:10px;" onkeydown="if(event.key==='Enter')doMasterLogin()">
+    <button class="btn btn-acc" style="width:100%;" onclick="doMasterLogin()">Accedi</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen">
+  <div class="hdr">
+    <div>
+      <div class="hdr-logo">🏢 RenkoSoft Master</div>
+      <div class="hdr-sub">Pannello gestione centralizzata</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="switcher-wrap">
+        <button class="switcher-btn" id="switcher-btn" onclick="toggleSwitcher()">
+          <span>🏢</span><span>Master</span><span class="chev">▾</span>
+        </button>
+        <div class="switcher-menu" id="switcher-menu">
+          <div class="switcher-item" onclick="chiudiSwitcher();tornaAMaster();">
+            <span class="si">🏢</span><span class="sl">Master (vista generale)</span><span class="check">✓</span>
+          </div>
+          <div class="switcher-sep"></div>
+          <div id="switcher-shops"><div class="switcher-empty">Nessun negozio configurato</div></div>
+          <div class="switcher-sep"></div>
+          <div class="switcher-item switcher-new" onclick="chiudiSwitcher();apriModalNegozio();">
+            <span class="si">➕</span><span class="sl">Nuovo negozio</span>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-sec btn-sm" onclick="doLogout()">Esci</button>
+    </div>
+  </div>
+  <div class="layout">
+    <div class="sidebar">
+      <button class="nb active" onclick="navM('negozi',this)">🏪 Negozi</button>
+      <button class="nb" onclick="navM('operatori',this)">👥 Operatori</button>
+      <button class="nb" onclick="navM('impostazioni',this)">⚙️ Impostazioni</button>
+    </div>
+    <div class="main">
+
+      <!-- NEGOZI -->
+      <div class="page show" id="page-negozi">
+        <div class="page-title">🏪 Gestione Negozi
+          <button class="btn btn-grn btn-sm" style="margin-left:auto;" onclick="apriModalNegozio()">+ Nuovo negozio</button>
+        </div>
+        <div class="filtro-banner" id="filtro-banner-negozi">
+          🔍 Filtrato per: <b id="filtro-banner-negozi-nome"></b>
+          <a onclick="rimuoviFiltroNegozio()">✕ Rimuovi filtro</a>
+        </div>
+        <div class="card">
+          <div id="negozi-list"><div class="em">Caricamento...</div></div>
+        </div>
+      </div>
+
+      <!-- VISTA RAPIDA NEGOZIO (filtrata, senza lasciare Master) -->
+      <div class="page" id="page-vista-negozio">
+        <div class="page-title">
+          <span id="vn-titolo">🏪 Negozio</span>
+          <button class="btn btn-sec btn-sm" style="margin-left:auto;" onclick="apriGestioneCompleta()">
+            ↗ Apri gestione completa
+          </button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-title">Dipendenti</div>
+            <div style="font-size:1.6rem;font-weight:800;" id="vn-kpi-dip">–</div>
+          </div>
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-title">Presenti ora</div>
+            <div style="font-size:1.6rem;font-weight:800;color:var(--grn);" id="vn-kpi-pres">–</div>
+          </div>
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-title">Timbrature oggi</div>
+            <div style="font-size:1.6rem;font-weight:800;" id="vn-kpi-tot">–</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">👥 Dipendenti</div>
+          <div id="vn-dipendenti-list"><div class="em">Caricamento...</div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🕒 Timbrature di oggi</div>
+          <div id="vn-timbrature-list"><div class="em">Caricamento...</div></div>
+        </div>
+      </div>
+
+      <!-- OPERATORI -->
+      <div class="page" id="page-operatori">
+        <div class="page-title">👥 Operatori e Accessi
+          <button class="btn btn-grn btn-sm" style="margin-left:auto;" onclick="apriModalOperatore()">+ Nuovo operatore</button>
+        </div>
+        <div class="filtro-banner" id="filtro-banner-operatori">
+          🔍 Filtrato per: <b id="filtro-banner-operatori-nome"></b>
+          <a onclick="rimuoviFiltroNegozio()">✕ Rimuovi filtro</a>
+        </div>
+        <div class="card">
+          <div class="row" style="margin-bottom:14px;">
+            <label>Filtra negozio</label>
+            <select class="fi" id="op-filtro-shop" style="max-width:220px;" onchange="renderOperatori()">
+              <option value="">Tutti i negozi</option>
+            </select>
+            <button class="btn btn-sec btn-sm" style="margin-left:8px;" onclick="debugUsers()">🔍 Debug JSON</button>
+          </div>
+          <div id="operatori-list"><div class="em">Caricamento...</div></div>
+        </div>
+      </div>
+
+      <!-- IMPOSTAZIONI -->
+      <div class="page" id="page-impostazioni">
+        <div class="page-title">⚙️ Impostazioni Master</div>
+        <div class="card">
+          <div class="card-title">Cambia password master</div>
+          <div class="row"><label>Password attuale</label>
+            <input type="password" id="imp-old" class="fi" placeholder="••••"></div>
+          <div class="row"><label>Nuova password</label>
+            <input type="password" id="imp-new" class="fi" placeholder="••••"></div>
+          <div class="row"><label>Conferma</label>
+            <input type="password" id="imp-new2" class="fi" placeholder="••••"></div>
+          <button class="btn btn-acc btn-sm" style="margin-top:6px;" onclick="cambiaPassMaster()">Salva</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NEGOZIO -->
+<div class="modal-bg" id="modal-negozio">
+  <div class="modal">
+    <div class="modal-title" id="mn-title">🏪 Nuovo negozio</div>
+    <div class="row"><label>ID univoco *</label>
+      <input class="fi" id="mn-id" placeholder="es. SHOP001"></div>
+    <div class="row"><label>Nome negozio *</label>
+      <input class="fi" id="mn-nome" placeholder="es. Bar Roma Centro"></div>
+    <div class="row"><label>P.IVA</label>
+      <input class="fi" id="mn-piva" placeholder="12345678901"></div>
+    <div class="row"><label>Indirizzo</label>
+      <input class="fi" id="mn-indirizzo" placeholder="Via Roma 1, Roma"></div>
+    <div class="row"><label>Telefono</label>
+      <input class="fi" id="mn-tel" placeholder="06..."></div>
+    <div class="row"><label>Email</label>
+      <input class="fi" id="mn-email" placeholder="negozio@..."></div>
+    <div class="row"><label>Note</label>
+      <input class="fi" id="mn-note" placeholder="Opzionale"></div>
+    <hr class="sep">
+    <div class="card-title" style="margin-bottom:10px;">📱 Impostazioni app per questo negozio</div>
+    <div style="font-size:.7rem;color:var(--sub);margin-bottom:12px;">
+      Queste impostazioni vengono applicate automaticamente quando un operatore di questo negozio accede all'app timbrature.
+    </div>
+
+    <div class="setting-row">
+      <div>
+        <div class="setting-lbl">📝 Popup nota e luogo dopo timbratura</div>
+        <div class="setting-sub">Mostra il popup per inserire note e luogo dopo ogni badge</div>
+      </div>
+      <label class="tgl-m"><input type="checkbox" id="mn-s-nota" checked><span class="tgl-sl-m"></span></label>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-lbl">🏖 Bottone Ferie / Permessi</div>
+        <div class="setting-sub">Mostra il bottone Ferie/Permessi sulla schermata badge</div>
+      </div>
+      <label class="tgl-m"><input type="checkbox" id="mn-s-ferie" checked><span class="tgl-sl-m"></span></label>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-lbl">⚡ Auto-invio barcode scanner</div>
+        <div class="setting-sub">OFF = modalità manuale con pulsante Conferma</div>
+      </div>
+      <label class="tgl-m"><input type="checkbox" id="mn-s-autoscan" checked><span class="tgl-sl-m"></span></label>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-lbl">🛰 Geolocalizzazione automatica</div>
+        <div class="setting-sub">Rileva posizione GPS automaticamente all'apertura del popup</div>
+      </div>
+      <label class="tgl-m"><input type="checkbox" id="mn-s-geo"><span class="tgl-sl-m"></span></label>
+    </div>
+    <div class="setting-row" style="border-bottom:none;">
+      <div>
+        <div class="setting-lbl">🔔 Notifiche promemoria timbratura</div>
+        <div class="setting-sub">Notifica Android se il dipendente dimentica di timbrare</div>
+      </div>
+      <label class="tgl-m"><input type="checkbox" id="mn-s-notif" checked><span class="tgl-sl-m"></span></label>
+    </div>
+
+    <hr class="sep">
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-sec" onclick="chiudiModalNegozio()">Annulla</button>
+      <button class="btn btn-acc" onclick="salvaNegozio()">💾 Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL OPERATORE -->
+<div class="modal-bg" id="modal-operatore">
+  <div class="modal">
+    <div class="modal-title" id="mo-title">👤 Nuovo operatore</div>
+    <div class="row"><label>Negozio *</label>
+      <select class="fi" id="mo-shop" onchange="caricaDipendentiNegozio()"></select></div>
+    <div class="row"><label>Username *</label>
+      <input class="fi" id="mo-username" placeholder="mario.rossi"></div>
+    <div class="row"><label>Nome</label>
+      <input class="fi" id="mo-nome" placeholder="Mario Rossi"></div>
+    <div class="row"><label>Password *</label>
+      <input class="fi" id="mo-pass" placeholder="••••" type="password"></div>
+    <div class="row"><label>Ruolo</label>
+      <select class="fi" id="mo-ruolo" onchange="togglePermessi()">
+        <option value="admin">Admin negozio</option>
+        <option value="base">Operatore base</option>
+      </select></div>
+    <div class="row" id="mo-dip-row">
+      <label>Dipendente<br><span style="font-weight:400;color:var(--sub);font-size:.68rem;">collegato</span></label>
+      <div style="flex:1;">
+        <select class="fi" id="mo-dip"
+          onchange="this.setAttribute('data-current',this.value)">
+          <option value="">— Nessuno / Seleziona negozio prima —</option>
+        </select>
+        <div style="font-size:.65rem;color:var(--sub);margin-top:4px;">
+          L'operatore vedrà solo i dati di questo dipendente
+        </div>
+      </div>
+    </div>
+    <div class="row"><label>Attivo</label>
+      <input type="checkbox" id="mo-attivo" checked style="width:auto;accent-color:var(--acc);"></div>
+
+    <!-- Permessi (solo per base) -->
+    <div id="mo-permessi-box" style="display:none;">
+      <hr class="sep">
+      <div class="card-title">Permessi operatore base</div>
+      <div class="perm-grid">
+        <label class="perm-item"><input type="checkbox" id="perm-ore" checked> Ore & Straordinari</label>
+        <label class="perm-item"><input type="checkbox" id="perm-ferie" checked> Ferie/Permessi/Malattia</label>
+        <label class="perm-item"><input type="checkbox" id="perm-dashboard"> Dashboard generale</label>
+        <label class="perm-item"><input type="checkbox" id="perm-calendario"> Calendario</label>
+        <label class="perm-item"><input type="checkbox" id="perm-tabella"> Tabella timbrature</label>
+        <label class="perm-item"><input type="checkbox" id="perm-export"> Export dati</label>
+      </div>
+      <div style="font-size:.68rem;color:var(--sub);margin-top:8px;">
+        L'operatore base vede sempre solo i propri dati personali, mai quelli degli altri dipendenti.
+      </div>
+    </div>
+
+    <hr class="sep">
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-sec" onclick="chiudiModalOperatore()">Annulla</button>
+      <button class="btn btn-acc" onclick="salvaOperatore()">💾 Salva</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- SUPABASE LAYER MASTER -->
+<script>
+const SB_URL = 'https://ayljuhtujbjdalsvpkas.supabase.co';
+const SB_KEY = 'sb_publishable_9e_DCKh2M25EmZA5ZxVzfA_HMnKM7ek';
+
+async function _sb(path, opts) {
+  opts = opts || {};
+  const url = SB_URL + '/rest/v1/' + path;
+  const headers = {
+    'apikey': SB_KEY,
+    'Authorization': 'Bearer ' + SB_KEY,
+    'Content-Type': 'application/json',
+    'Prefer': opts.prefer || 'return=representation'
+  };
+  const res = await fetch(url, {
+    method: opts.method || 'GET',
+    headers,
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  if(!res.ok) { const e = await res.text(); throw new Error(e); }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+// Password master: salvata in Supabase come shop con id='MASTER'
+// oppure usa localStorage come fallback
+const MASTER_PASS_DEFAULT = 'master2024';
+
+async function checkMaster(password) {
+  try {
+    // Controlla se esiste una password master salvata in Supabase
+    const rows = await _sb('shops?id=eq.MASTER_CONFIG&select=settings', {});
+    if(rows && rows[0] && rows[0].settings && rows[0].settings.masterPass) {
+      return password === rows[0].settings.masterPass;
+    }
+    // Fallback: password default
+    return password === MASTER_PASS_DEFAULT;
+  } catch(e) {
+    return password === MASTER_PASS_DEFAULT;
+  }
+}
+
+async function setMasterPassword(oldPass, newPass) {
+  const ok = await checkMaster(oldPass);
+  if(!ok) return { success:false, message:'Password master errata' };
+  if(!newPass || newPass.length < 4) return { success:false, message:'Minimo 4 caratteri' };
+  try {
+    // Salva nuova password in Supabase
+    const exists = await _sb('shops?id=eq.MASTER_CONFIG', {});
+    if(exists && exists.length) {
+      await _sb('shops?id=eq.MASTER_CONFIG', { method:'PATCH', prefer:'return=minimal',
+        body:{ settings:{ masterPass:newPass } } });
+    } else {
+      await _sb('shops', { method:'POST', prefer:'return=minimal',
+        body:{ id:'MASTER_CONFIG', nome:'Master Config', settings:{ masterPass:newPass } } });
+    }
+    return { success:true };
+  } catch(e) { return { success:false, message:e.message }; }
+}
+
+async function getShops(masterPass) {
+  const ok = await checkMaster(masterPass);
+  if(!ok) return { success:false, message:'Password master errata' };
+  try {
+    const rows = await _sb('shops?id=neq.MASTER_CONFIG&order=nome', {});
+    return { success:true, shops:(rows||[]).map(r => ({
+      id:r.id, nome:r.nome, piva:r.piva||'', indirizzo:r.indirizzo||'', tel:r.tel||'',
+      settings:r.settings||{}
+    })) };
+  } catch(e) { return { success:false, message:e.message }; }
+}
+
+async function saveShop(masterPass, shop) {
+  const ok = await checkMaster(masterPass);
+  if(!ok) return { success:false, message:'Password master errata' };
+  if(!shop.id || !shop.nome) return { success:false, message:'ID e nome obbligatori' };
+  try {
+    const exists = await _sb('shops?id=eq.' + shop.id, {});
+    if(exists && exists.length) {
+      await _sb('shops?id=eq.' + shop.id, { method:'PATCH', prefer:'return=minimal',
+        body:{ nome:shop.nome, piva:shop.piva||'', indirizzo:shop.indirizzo||'',
+          tel:shop.tel||'', settings:shop.settings||{} } });
+    } else {
+      await _sb('shops', { method:'POST', prefer:'return=minimal',
+        body:{ id:shop.id, nome:shop.nome, piva:shop.piva||'', indirizzo:shop.indirizzo||'',
+          tel:shop.tel||'', settings:shop.settings||{} } });
+    }
+    return { success:true };
+  } catch(e) { return { success:false, message:e.message }; }
+}
+
+async function deleteShop(masterPass, shopId) {
+  const ok = await checkMaster(masterPass);
+  if(!ok) return { success:false, message:'Password master errata' };
+  try {
+    await _sb('shops?id=eq.' + shopId, { method:'DELETE', prefer:'return=minimal' });
+    return { success:true };
+  } catch(e) { return { success:false, message:e.message }; }
+}
+
+async function getShopUsers(masterPass, shopId) {
+  const ok = await checkMaster(masterPass);
+  if(!ok) return { success:false, message:'Password master errata' };
+  try {
+    let q = 'shop_users?select=id,username,nome,ruolo,shop_id,attivo,permessi,employee_id';
+    if(shopId) q += '&shop_id=eq.' + shopId;
+    const rows = await _sb(q, {});
+    return { success:true, users:(rows||[]).map(r => ({
+      id:r.id, username:r.username, nome:r.nome, ruolo:r.ruolo,
+      shopId:r.shop_id, attivo:r.attivo, permessi:r.permessi||{},
+      employeeId:r.employee_id||null
+    })) };
+  } catch(e) { return { success:false, message:e.message }; }
+}
+
+async function saveShopUser(masterPass, user) {
+  const ok = await checkMaster(masterPass);
+  if(!ok) return { success:false, message:'Password master errata' };
+  if(!user.username || !user.shopId) return { success:false, message:'Username e negozio obbligatori' };
+  try {
+    const body = {
+      username: user.username,
+      nome: user.nome || user.username,
+      ruolo: user.ruolo || 'base',
+      shop_id: user.shopId,
+      attivo: user.attivo !== false,
+      permessi: user.permessi || {},
+      employee_id: user.employeeId || null
+    };
+    if(user.password && user.password.length > 0) body.password = user.password;
+    if(user.id) {
+      await _sb('shop_users?id=eq.' + user.id, { method:'PATCH', prefer:'return=minimal', body });
+    } else {
+      if(!body.password) body.password = 'pass1234';
+      await _sb('shop_users', { method:'POST', prefer:'return=minimal', body });
+    }
+    return { success:true };
+  } catch(e) { return { success:false, message:e.message }; }
+}
+
+async function deleteShopUser(masterPass, userId) {
+  const ok = await checkMaster(masterPass);
+  if(!ok) return { success:false, message:'Password master errata' };
+  try {
+    await _sb('shop_users?id=eq.' + userId, { method:'DELETE', prefer:'return=minimal' });
+    return { success:true };
+  } catch(e) { return { success:false, message:e.message }; }
+}
+
+// Wrapper google.script.run compatibile
+const google = {
+  script: {
+    run: new Proxy({}, {
+      get(_, method) {
+        let _onSuccess = r => r;
+        let _onFailure = e => console.error(e);
+        const fns = { checkMaster, setMasterPassword, getShops, saveShop, deleteShop, getShopUsers, saveShopUser, deleteShopUser };
+        const chain = {
+          withSuccessHandler(fn) { _onSuccess = fn; return chain; },
+          withFailureHandler(fn) { _onFailure = fn; return chain; },
+        };
+        return new Proxy(chain, {
+          get(_, prop) {
+            if(prop in chain) return chain[prop];
+            return null;
+          },
+          apply(_, __, args) {
+            (fns[method] ? fns[method](...args) : Promise.resolve(null))
+              .then(_onSuccess).catch(_onFailure);
+          }
+        });
+      }
+    })
+  }
+};
+</script>
+
+<script>
+var _masterPass = '';
+// URL reale del web app (iniettato da GAS — non usare window.location che è sandbox)
+var _webAppUrl = '<?= webAppUrl ?>';
+var _shops = [];
+var _operators = [];
+var _editShopId = null;
+var _editOpId   = null;
+
+// ── AUTH ──────────────────────────────────────────────────
+function doMasterLogin(){
+  var p = document.getElementById('master-pass').value;
+  if(!p){ showErr('Inserisci la password'); return; }
+  google.script.run
+    .withSuccessHandler(function(ok){
+      if(ok){
+        _masterPass = p;
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app-screen').style.display  = 'block';
+        loadAll();
+      } else {
+        showErr('Password errata');
+      }
+    })
+    .withFailureHandler(function(e){ showErr(e.message); })
+    .checkMaster(p);
+}
+
+function doLogout(){
+  _masterPass = '';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app-screen').style.display   = 'none';
+  document.getElementById('master-pass').value = '';
+}
+
+function showErr(msg){
+  var el = document.getElementById('login-err');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+function _getClientUrl(shopId){
+  return _webAppUrl + '?c=' + shopId;
+}
+function copiaUrl(shopId){
+  var url = _getClientUrl(shopId);
+  navigator.clipboard.writeText(url).then(function(){
+    toast('URL copiato!','ok');
+  }).catch(function(){
+    prompt('Copia questo URL:', url);
+  });
+}
+
+// ── SWITCHER ACCESSO RAPIDO ──────────────────────────────────
+function toggleSwitcher(){
+  var menu = document.getElementById('switcher-menu');
+  var btn  = document.getElementById('switcher-btn');
+  var open = menu.classList.toggle('show');
+  btn.classList.toggle('open', open);
+}
+function chiudiSwitcher(){
+  document.getElementById('switcher-menu').classList.remove('show');
+  document.getElementById('switcher-btn').classList.remove('open');
+}
+// Chiudi il menu se si clicca fuori
+document.addEventListener('click', function(e){
+  var wrap = document.querySelector('.switcher-wrap');
+  if(wrap && !wrap.contains(e.target)) chiudiSwitcher();
+});
+
+function renderSwitcherShops(){
+  var el = document.getElementById('switcher-shops');
+  if(!_shops.length){ el.innerHTML = '<div class="switcher-empty">Nessun negozio configurato</div>'; return; }
+  el.innerHTML = _shops.map(function(s){
+    return '<div class="switcher-item" onclick="apriNegozioRapido(\''+s.id+'\')">'+
+      '<span class="si">🏪</span><span class="sl">'+s.nome+'</span></div>';
+  }).join('');
+}
+
+// ── VISTA RAPIDA NEGOZIO — resta dentro Master, nessuna nuova scheda ──
+var _vnShopId = null;
+
+function apriNegozioRapido(shopId){
+  chiudiSwitcher();
+  var shop = _shops.filter(function(s){ return s.id === shopId; })[0];
+  if(!shop){ toast('Negozio non trovato','err'); return; }
+  _vnShopId = shopId;
+
+  // Aggiorna pulsante switcher e titolo pagina
+  document.querySelector('#switcher-btn span:nth-child(2)').textContent = shop.nome;
+  document.getElementById('vn-titolo').textContent = '🏪 ' + shop.nome;
+
+  // Naviga alla pagina filtrata
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('show'); });
+  document.querySelectorAll('.nb').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('page-vista-negozio').classList.add('show');
+
+  caricaVistaNegozio(shopId);
+  _aggiornaBannerFiltro();
+}
+
+function caricaVistaNegozio(shopId){
+  document.getElementById('vn-dipendenti-list').innerHTML  = '<div class="em">Caricamento...</div>';
+  document.getElementById('vn-timbrature-list').innerHTML  = '<div class="em">Caricamento...</div>';
+
+  google.script.run
+    .withSuccessHandler(function(emps){
+      emps = emps || [];
+      document.getElementById('vn-kpi-dip').textContent = emps.length;
+      var el = document.getElementById('vn-dipendenti-list');
+      if(!emps.length){ el.innerHTML = '<div class="em">Nessun dipendente</div>'; return; }
+      el.innerHTML = '<table class="tbl"><thead><tr><th>ID</th><th>Nome</th><th>Ruolo</th></tr></thead><tbody>' +
+        emps.map(function(d){
+          return '<tr><td style="color:var(--sub);">'+d.id+'</td><td>'+d.nome+' '+(d.cognome||'')+'</td><td>'+(d.ruolo||'–')+'</td></tr>';
+        }).join('') + '</tbody></table>';
+    })
+    .withFailureHandler(function(e){ document.getElementById('vn-dipendenti-list').innerHTML = '<div class="em">Errore: '+e.message+'</div>'; })
+    .getEmployeesFiltered(shopId);
+
+  google.script.run
+    .withSuccessHandler(function(s){
+      document.getElementById('vn-kpi-pres').textContent = (s.presenti||[]).length;
+      document.getElementById('vn-kpi-tot').textContent  = s.totale||0;
+      var el = document.getElementById('vn-timbrature-list');
+      var rec = (s.punches||[]).slice().reverse();
+      if(!rec.length){ el.innerHTML = '<div class="em">Nessuna timbratura oggi</div>'; return; }
+      el.innerHTML = '<table class="tbl"><thead><tr><th>Ora</th><th>Dipendente</th><th>Tipo</th></tr></thead><tbody>' +
+        rec.map(function(p){
+          var cls = p.tipo==='ENTRATA' ? 'badge-base' : 'badge-off';
+          return '<tr><td>'+p.ora+'</td><td>'+p.nome+' '+(p.cognome||'')+'</td>'+
+            '<td><span class="badge '+cls+'">'+p.tipo+'</span></td></tr>';
+        }).join('') + '</tbody></table>';
+    })
+    .withFailureHandler(function(e){ document.getElementById('vn-timbrature-list').innerHTML = '<div class="em">Errore: '+e.message+'</div>'; })
+    .getOggiStatsFiltered(shopId);
+}
+
+// Torna alla vista generale Master
+function tornaAMaster(){
+  _vnShopId = null;
+  document.querySelector('#switcher-btn span:nth-child(2)').textContent = 'Master';
+  var sel = document.getElementById('op-filtro-shop');
+  if(sel) sel.value = '';
+  navM('negozi', document.querySelector('.nb'));
+}
+
+// Per modifiche avanzate (calendario, export, ferie...) apre comunque
+// la dashboard completa in una nuova scheda tramite token, solo se richiesto.
+function apriGestioneCompleta(){
+  if(!_vnShopId) return;
+  toast('Apertura gestione completa...','ok');
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(r && r.success && r.url) window.open(r.url, '_blank');
+      else toast((r&&r.message) || 'Errore apertura negozio','err');
+    })
+    .withFailureHandler(function(e){ toast(e.message,'err'); })
+    .generaTokenAccessoNegozio(_masterPass, _vnShopId);
+}
+
+
+// ── NAV ───────────────────────────────────────────────────
+function navM(page, btn){
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('show'); });
+  document.querySelectorAll('.nb').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('page-'+page).classList.add('show');
+  if(btn) btn.classList.add('active');
+
+  // Se e' attivo un filtro negozio (switcher), applicalo alla pagina appena aperta
+  if(_vnShopId){
+    if(page === 'operatori'){
+      var sel = document.getElementById('op-filtro-shop');
+      if(sel) sel.value = _vnShopId;
+      renderOperatori();
+    }
+    if(page === 'negozi') renderNegozi();
+  }
+  _aggiornaBannerFiltro();
+}
+
+// Mostra/aggiorna i banner "Filtrato per: <negozio>" su Negozi e Operatori
+function _aggiornaBannerFiltro(){
+  var shop = _vnShopId ? _shops.filter(function(s){ return s.id === _vnShopId; })[0] : null;
+  ['negozi','operatori'].forEach(function(p){
+    var banner = document.getElementById('filtro-banner-'+p);
+    var nomeEl = document.getElementById('filtro-banner-'+p+'-nome');
+    if(!banner) return;
+    if(shop){
+      if(nomeEl) nomeEl.textContent = shop.nome;
+      banner.classList.add('show');
+    } else {
+      banner.classList.remove('show');
+    }
+  });
+}
+
+// Rimuove il filtro negozio SENZA lasciare la pagina corrente
+function rimuoviFiltroNegozio(){
+  _vnShopId = null;
+  document.querySelector('#switcher-btn span:nth-child(2)').textContent = 'Master';
+  var sel = document.getElementById('op-filtro-shop');
+  if(sel) sel.value = '';
+  renderNegozi();
+  renderOperatori();
+  _aggiornaBannerFiltro();
+}
+
+function toast(msg, type){
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast' + (type==='err'?' err':'');
+  el.style.display = 'block';
+  setTimeout(function(){ el.style.display='none'; }, 3000);
+}
+
+// ── LOAD ALL ─────────────────────────────────────────────
+function loadAll(){
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(!r.success){ toast(r.message,'err'); return; }
+      _shops = r.shops || [];
+      renderNegozi();
+      popolaShopSelects();
+      renderSwitcherShops();
+    })
+    .withFailureHandler(function(e){ toast(e.message,'err'); })
+    .getShops(_masterPass);
+
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(!r.success) return;
+      _operators = r.users || [];
+      renderOperatori();
+    })
+    .withFailureHandler(function(){})
+    .getShopUsers(_masterPass, null);
+}
+
+// ── NEGOZI ───────────────────────────────────────────────
+function renderNegozi(){
+  var el = document.getElementById('negozi-list');
+  var lista = _vnShopId ? _shops.filter(function(s){ return s.id === _vnShopId; }) : _shops;
+  if(!lista.length){ el.innerHTML='<div class="em">Nessun negozio configurato</div>'; return; }
+  var html='<table class="tbl"><thead><tr>'+
+    '<th>ID</th><th>Nome</th><th>P.IVA</th><th>URL Cliente</th><th>Operatori</th><th>Az.</th>'+
+    '</tr></thead><tbody>';
+  lista.forEach(function(s){
+    var nOp = _operators.filter(function(u){ return u.shopId===s.id; }).length;
+    html+='<tr>'+
+      '<td style="font-size:.7rem;color:var(--sub);">'+s.id+'</td>'+
+      '<td style="font-weight:600;">'+s.nome+'</td>'+
+      '<td style="font-size:.72rem;color:var(--sub);">'+(s.piva||'—')+'</td>'+
+      '<td style="font-size:.68rem;max-width:200px;">'+
+        '<span style="color:var(--acc);word-break:break-all;">'+_getClientUrl(s.id)+'</span> '+
+        '<button onclick="copiaUrl('+JSON.stringify(s.id)+')" '+
+        'style="border:none;background:transparent;cursor:pointer;color:var(--sub);font-size:.8rem;" title="Copia URL">📋</button>'+
+      '</td>'+
+      '<td><span style="background:rgba(41,128,185,.15);color:#5dade2;padding:2px 8px;border-radius:4px;font-size:.7rem;">'+nOp+' op.</span></td>'+
+      '<td style="white-space:nowrap;">'+
+        '<button class="btn btn-sec btn-sm" onclick="modificaNegozio(\''+s.id+'\')">✏️</button> '+
+        '<button class="btn btn-red btn-sm" onclick="eliminaNegozio(\''+s.id+'\')">🗑</button>'+
+      '</td></tr>';
+  });
+  el.innerHTML=html+'</tbody></table>';
+}
+
+function apriModalNegozio(){ 
+  _editShopId = null;
+  document.getElementById('mn-title').textContent = '🏪 Nuovo negozio';
+  // Reset impostazioni ai default
+  document.getElementById('mn-s-nota').checked     = true;
+  document.getElementById('mn-s-ferie').checked    = true;
+  document.getElementById('mn-s-autoscan').checked = true;
+  document.getElementById('mn-s-geo').checked      = false;
+  document.getElementById('mn-s-notif').checked    = true;
+  ['mn-id','mn-nome','mn-piva','mn-indirizzo','mn-tel','mn-email','mn-note'].forEach(function(id){
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('mn-id').readOnly = false;
+  document.getElementById('modal-negozio').classList.add('show');
+}
+
+function modificaNegozio(shopId){
+  var s = _shops.filter(function(x){ return x.id===shopId; })[0];
+  if(!s) return;
+  _editShopId = shopId;
+  document.getElementById('mn-title').textContent = 'Modifica: '+s.nome;
+  document.getElementById('mn-id').value       = s.id;
+  document.getElementById('mn-nome').value     = s.nome||'';
+  document.getElementById('mn-piva').value     = s.piva||'';
+  document.getElementById('mn-indirizzo').value= s.indirizzo||'';
+  document.getElementById('mn-tel').value      = s.tel||'';
+  document.getElementById('mn-email').value    = s.email||'';
+  document.getElementById('mn-note').value     = s.note||'';
+  document.getElementById('mn-id').readOnly = true;
+  // Popola impostazioni del negozio
+  var ss = s.settings || {};
+  document.getElementById('mn-s-nota').checked    = ss.mostraNota    !== false;
+  document.getElementById('mn-s-ferie').checked   = ss.mostraFerie   !== false;
+  document.getElementById('mn-s-autoscan').checked= ss.autoScanInvio !== false;
+  document.getElementById('mn-s-geo').checked     = ss.autoGeo       === true;
+  document.getElementById('mn-s-notif').checked   = ss.notificheAttive !== false;
+  document.getElementById('modal-negozio').classList.add('show');
+}
+
+function chiudiModalNegozio(){ document.getElementById('modal-negozio').classList.remove('show'); }
+
+function salvaNegozio(){
+  var shop = {
+    id:        document.getElementById('mn-id').value.trim().toUpperCase().replace(/[^A-Z0-9_]/g,''),
+    nome:      document.getElementById('mn-nome').value.trim(),
+    piva:      document.getElementById('mn-piva').value.trim(),
+    indirizzo: document.getElementById('mn-indirizzo').value.trim(),
+    tel:       document.getElementById('mn-tel').value.trim(),
+    email:     document.getElementById('mn-email').value.trim(),
+    note:      document.getElementById('mn-note').value.trim(),
+    settings: {
+      mostraNota:      document.getElementById('mn-s-nota').checked,
+      mostraFerie:     document.getElementById('mn-s-ferie').checked,
+      autoScanInvio:   document.getElementById('mn-s-autoscan').checked,
+      autoGeo:         document.getElementById('mn-s-geo').checked,
+      notificheAttive: document.getElementById('mn-s-notif').checked
+    }
+  };
+  if(!shop.id||!shop.nome){ toast('ID e nome obbligatori','err'); return; }
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(r.success){ chiudiModalNegozio(); toast('Negozio salvato'); loadAll(); }
+      else toast(r.message,'err');
+    })
+    .withFailureHandler(function(e){ toast(e.message,'err'); })
+    .saveShop(_masterPass, shop);
+}
+
+function eliminaNegozio(shopId){
+  if(!confirm('Eliminare il negozio '+shopId+'?\nI dati su Drive NON verranno eliminati.')) return;
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(r.success){ toast('Negozio eliminato'); loadAll(); }
+      else toast(r.message,'err');
+    })
+    .withFailureHandler(function(e){ toast(e.message,'err'); })
+    .deleteShop(_masterPass, shopId);
+}
+
+// ── OPERATORI ────────────────────────────────────────────
+function popolaShopSelects(){
+  ['op-filtro-shop','mo-shop'].forEach(function(selId){
+    var sel = document.getElementById(selId);
+    if(!sel) return;
+    var cur = sel.value;
+    var blank = selId === 'op-filtro-shop' ? '<option value="">Tutti i negozi</option>' : '<option value="">Seleziona negozio</option>';
+    sel.innerHTML = blank;
+    _shops.forEach(function(s){
+      var o = document.createElement('option');
+      o.value = s.id; o.textContent = s.nome+' ('+s.id+')';
+      sel.appendChild(o);
+    });
+    sel.value = cur;
+  });
+}
+
+
+function debugUsers(){
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(!r.success){ alert('Errore: '+r.message); return; }
+      var txt = JSON.stringify(r.users, null, 2);
+      var w = window.open('','_blank','width=700,height=500');
+      w.document.write('<pre style="font-family:monospace;font-size:12px;padding:16px;background:#111;color:#eee;">'+txt+'</pre>');
+    })
+    .withFailureHandler(function(e){ alert('Errore: '+e.message); })
+    .getShopUsers(_masterPass, null);
+}
+
+function renderOperatori(){
+  var el  = document.getElementById('operatori-list');
+  var filtroShop = _vnShopId || (document.getElementById('op-filtro-shop')||{}).value||'';
+  var list = filtroShop ? _operators.filter(function(u){ return u.shopId===filtroShop; }) : _operators;
+  if(!list.length){ el.innerHTML='<div class="em">Nessun operatore trovato</div>'; return; }
+  var html='<table class="tbl"><thead><tr>'+
+    '<th>Username</th><th>Nome</th><th>Negozio</th><th>Ruolo</th><th>Stato</th><th>Az.</th>'+
+    '</tr></thead><tbody>';
+  list.forEach(function(u){
+    var shop = _shops.filter(function(s){ return s.id===u.shopId; })[0];
+    html+='<tr>'+
+      '<td style="font-weight:600;">'+u.username+'</td>'+
+      '<td>'+u.nome+'</td>'+
+      '<td style="font-size:.72rem;">'+(shop?shop.nome:u.shopId)+'</td>'+
+      '<td>'+
+        '<span class="badge badge-'+(u.ruolo==='admin'?'admin':'base')+'">'+u.ruolo+'</span>'+
+        (u.employeeId ? '<span style="font-size:.65rem;color:#1abc9c;margin-left:4px;" title="Dipendente collegato">🔗 '+u.employeeId+'</span>' : '<span style="font-size:.65rem;color:var(--sub);margin-left:4px;">—</span>')+
+      '</td>'+
+      '<td><span class="badge '+(u.attivo?'badge-admin':'badge-off')+'">'+(u.attivo?'Attivo':'Disabilitato')+'</span></td>'+
+      '<td style="white-space:nowrap;">'+
+        '<button class="btn btn-sec btn-sm" onclick="modificaOperatore(\''+u.id+'\')">✏️</button> '+
+        '<button class="btn btn-red btn-sm" onclick="eliminaOperatore(\''+u.id+'\')">🗑</button>'+
+      '</td></tr>';
+  });
+  el.innerHTML=html+'</tbody></table>';
+}
+
+function apriModalOperatore(){
+  _editOpId = null;
+  document.getElementById('mo-title').textContent = 'Nuovo operatore';
+  document.getElementById('mo-username').value = '';
+  document.getElementById('mo-nome').value = '';
+  document.getElementById('mo-pass').value = '';
+  document.getElementById('mo-pass').placeholder = '••••';
+  document.getElementById('mo-ruolo').value = 'base';
+  document.getElementById('mo-attivo').checked = true;
+  document.getElementById('mo-shop').value = '';
+  document.getElementById('mo-dip').innerHTML = '<option value="">— Seleziona negozio prima —</option>';
+  ['perm-ore','perm-ferie'].forEach(function(id){ document.getElementById(id).checked=true; });
+  ['perm-dashboard','perm-calendario','perm-tabella','perm-export'].forEach(function(id){
+    document.getElementById(id).checked=false;
+  });
+  togglePermessi();
+  document.getElementById('modal-operatore').classList.add('show');
+}
+
+function modificaOperatore(userId){
+  var u = _operators.filter(function(x){ return x.id===userId; })[0];
+  if(!u) return;
+  _editOpId = userId;
+  document.getElementById('mo-title').textContent = 'Modifica: '+u.username;
+  document.getElementById('mo-username').value = u.username;
+  document.getElementById('mo-nome').value = u.nome||'';
+  document.getElementById('mo-pass').value = '';
+  document.getElementById('mo-pass').placeholder = 'Lascia vuoto per non cambiare';
+  document.getElementById('mo-ruolo').value = u.ruolo||'base';
+  document.getElementById('mo-attivo').checked = u.attivo!==false;
+  var shopSel = document.getElementById('mo-shop');
+  shopSel.value = u.shopId||'';
+  shopSel.setAttribute('data-current', u.shopId||'');
+  // Carica dipendenti passando shopId direttamente
+  caricaDipendentiNegozio(u.employeeId||'', u.shopId||'');
+  var p = u.permessi||{};
+  document.getElementById('perm-ore').checked        = p.ore!==false;
+  document.getElementById('perm-ferie').checked      = p.ferie!==false;
+  document.getElementById('perm-dashboard').checked  = !!p.dashboard;
+  document.getElementById('perm-calendario').checked = !!p.calendario;
+  document.getElementById('perm-tabella').checked    = !!p.tabella;
+  document.getElementById('perm-export').checked     = !!p.export;
+  togglePermessi();
+  document.getElementById('modal-operatore').classList.add('show');
+}
+
+function chiudiModalOperatore(){ document.getElementById('modal-operatore').classList.remove('show'); }
+
+function togglePermessi(){
+  var isBase = document.getElementById('mo-ruolo').value === 'base';
+  document.getElementById('mo-permessi-box').style.display = isBase ? 'block' : 'none';
+}
+
+function caricaDipendentiNegozio(selEmpId, forceShopId){
+  // forceShopId: usa questo invece della select (per modificaOperatore)
+  var shopId = forceShopId || document.getElementById('mo-shop').value;
+  var sel    = document.getElementById('mo-dip');
+  sel.innerHTML = '<option value="">— Caricamento... —</option>';
+  if(!shopId){ sel.innerHTML='<option value="">— Seleziona negozio prima —</option>'; return; }
+  google.script.run
+    .withSuccessHandler(function(r){
+      sel.innerHTML = '<option value="">(Nessun collegamento)</option>';
+      if(r.success && r.employees && r.employees.length){
+        r.employees.forEach(function(d){
+          var o = document.createElement('option');
+          o.value = d.id;
+          o.textContent = d.nome+' '+d.cognome+(d.ruolo?' — '+d.ruolo:'');
+          sel.appendChild(o);
+        });
+        // Seleziona il dipendente collegato se specificato
+        if(selEmpId){
+          var empTarget = String(selEmpId).trim();
+          // Cerca l'option con valore corrispondente
+          var found = false;
+          for(var oi=0; oi<sel.options.length; oi++){
+            if(String(sel.options[oi].value).trim() === empTarget){
+              sel.selectedIndex = oi;
+              found = true;
+              break;
+            }
+          }
+          if(!found) sel.value = '';
+          sel.setAttribute('data-current', found ? empTarget : '');
+        }
+      } else {
+        sel.innerHTML += '<option disabled>Nessun dipendente in questo negozio</option>';
+      }
+    })
+    .withFailureHandler(function(e){
+      sel.innerHTML='<option value="">Errore: '+(e&&e.message?e.message:'')+'</option>';
+    })
+    .getEmployeesPublic(_masterPass, shopId);
+}
+
+function salvaOperatore(){
+  // Leggi shopId dalla select; se vuoto (option non ancora caricate) usa il valore salvato
+  var shopSel = document.getElementById('mo-shop');
+  var shopId  = shopSel.value || shopSel.getAttribute('data-current') || '';
+  var uname  = document.getElementById('mo-username').value.trim();
+  var nome   = document.getElementById('mo-nome').value.trim();
+  var pass   = document.getElementById('mo-pass').value;
+  var ruolo  = document.getElementById('mo-ruolo').value;
+  if(!shopId||!uname){ toast('Negozio e username obbligatori','err'); return; }
+  if(!_editOpId && !pass){ toast('Password obbligatoria per nuovo operatore','err'); return; }
+
+  var dipSel   = document.getElementById('mo-dip');
+  // Prendi il valore selezionato; se la select è stata ri-popolata usa data-current
+  var empIdRaw = '';
+  if(dipSel.selectedIndex > 0){
+    empIdRaw = dipSel.options[dipSel.selectedIndex].value || '';
+  }
+  if(!empIdRaw) empIdRaw = dipSel.getAttribute('data-current') || '';
+  var empId = (empIdRaw && empIdRaw.trim() !== '') ? empIdRaw.trim() : null;
+  console.log('salvaOperatore: empIdRaw='+empIdRaw+' empId='+empId);
+  var user = {
+    id:         _editOpId || null,
+    username:   uname,
+    nome:       nome||uname,
+    shopId:     shopId,
+    ruolo:      ruolo,
+    attivo:     document.getElementById('mo-attivo').checked,
+    employeeId: empId,
+    permessi: {
+      ore:        document.getElementById('perm-ore').checked,
+      ferie:      document.getElementById('perm-ferie').checked,
+      dashboard:  document.getElementById('perm-dashboard').checked,
+      calendario: document.getElementById('perm-calendario').checked,
+      tabella:    document.getElementById('perm-tabella').checked,
+      export:     document.getElementById('perm-export').checked
+    }
+  };
+  if(pass) user.password = pass;
+
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(r.success){
+        var msg = 'Operatore salvato';
+        if(empId) msg += ' — Dipendente: ' + empId;
+        else msg += ' — Nessun dipendente collegato';
+        chiudiModalOperatore();
+        toast(msg);
+        loadAll();
+      } else toast(r.message,'err');
+    })
+    .withFailureHandler(function(e){ toast(e.message,'err'); })
+    .saveShopUser(_masterPass, user);
+}
+
+function eliminaOperatore(userId){
+  var u = _operators.filter(function(x){ return x.id===userId; })[0];
+  if(!u||!confirm('Eliminare operatore '+u.username+'?')) return;
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(r.success){ toast('Operatore eliminato'); loadAll(); }
+      else toast(r.message,'err');
+    })
+    .withFailureHandler(function(e){ toast(e.message,'err'); })
+    .deleteShopUser(_masterPass, userId);
+}
+
+// ── IMPOSTAZIONI ─────────────────────────────────────────
+function cambiaPassMaster(){
+  var old = document.getElementById('imp-old').value;
+  var nw  = document.getElementById('imp-new').value;
+  var nw2 = document.getElementById('imp-new2').value;
+  if(nw!==nw2){ toast('Le password non coincidono','err'); return; }
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(r.success){
+        toast('Password aggiornata');
+        _masterPass = nw;
+        ['imp-old','imp-new','imp-new2'].forEach(function(id){document.getElementById(id).value='';});
+      } else toast(r.message,'err');
+    })
+    .withFailureHandler(function(e){ toast(e.message,'err'); })
+    .setMasterPassword(old, nw);
+}
+</script>
+</body>
+</html>
