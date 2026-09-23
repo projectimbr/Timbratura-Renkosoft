@@ -628,6 +628,7 @@ input[type=date].fi{color-scheme:dark;}
     <span class="err-icon">❌</span>
     <div class="err-title">Badge non riconosciuto</div>
     <div class="err-msg" id="err-msg">Il codice scansionato non corrisponde a nessun dipendente registrato.</div>
+    <button onclick="chiudiErrore()" style="margin-top:16px;padding:10px 28px;background:#e74c3c;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;">✕ Chiudi</button>
   </div>
 </div>
 
@@ -1834,14 +1835,21 @@ function chiudiOverlay(){
 }
 
 function mostraErrore(msg){
-  document.getElementById('err-msg').textContent = msg || 'Badge non riconosciuto.';
+  var errMsg = document.getElementById('err-msg');
+  if(errMsg) errMsg.textContent = msg || 'Badge non riconosciuto.';
   var ov = document.getElementById('err-overlay');
-  ov.classList.add('show');
-  setStatus('❌', msg || 'Badge non riconosciuto', 'err');
+  if(ov) ov.classList.add('show');
+  if(typeof setStatus === 'function') setStatus('❌', msg || 'Badge non riconosciuto', 'err');
   setTimeout(function(){
-    ov.classList.remove('show');
-    refocus();
-  }, ERR_CLOSE);
+    chiudiErrore();
+  }, ERR_CLOSE || 3000);
+}
+
+function chiudiErrore(){
+  var ov = document.getElementById('err-overlay');
+  if(ov) ov.classList.remove('show');
+  busy = false;
+  refocus();
 }
 
 function showSpinner(on){
