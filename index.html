@@ -1568,30 +1568,37 @@ function onFailure(err){
 
 // ── OVERLAY CONFERMA ─────────────────────────────────────
 function mostraConferma(res){
+  if(!res) return;
   var isEntrata = res.tipo === 'ENTRATA';
   var cls       = isEntrata ? 'entrata' : 'uscita';
+  var _s = function(id,val){ var e=document.getElementById(id); if(e) e.textContent=val; };
+  var _c = function(id,val){ var e=document.getElementById(id); if(e) e.className=val; };
 
-  document.getElementById('ov-emoji').textContent = isEntrata ? '✅' : '🚪';
-  document.getElementById('ov-tipo').textContent  = res.tipo;
-  document.getElementById('ov-tipo').className    = 'ov-tipo ' + cls;
-  document.getElementById('ov-nome').textContent  = res.nome + (res.cognome ? ' '+res.cognome : '');
-  document.getElementById('ov-ruolo').textContent = res.ruolo || '';
-  document.getElementById('ov-ora').textContent   = res.ora || '';
+  _s('ov-emoji', isEntrata ? '✅' : '🚪');
+  _s('ov-tipo', res.tipo);
+  _c('ov-tipo', 'ov-tipo ' + cls);
+  _s('ov-nome', res.nome + (res.cognome ? ' '+res.cognome : ''));
+  _s('ov-ruolo', res.ruolo || '');
+  _s('ov-ora', res.ora || '');
 
   var card = document.getElementById('ov-card');
-  card.className = 'ov-card ' + cls;
+  if(card) card.className = 'ov-card ' + cls;
 
   var fill = document.getElementById('ov-bar-fill');
-  fill.className = 'ov-bar-fill ' + cls;
-  fill.style.animationDuration = AUTO_CLOSE + 'ms';
-  fill.style.animation = 'none';
-  void fill.offsetWidth;
-  fill.style.animation = '';
+  if(fill){
+    fill.className = 'ov-bar-fill ' + cls;
+    fill.style.animationDuration = (AUTO_CLOSE||3000) + 'ms';
+    fill.style.animation = 'none';
+    void fill.offsetWidth;
+    fill.style.animation = '';
+  }
 
   var ov = document.getElementById('overlay');
-  ov.style.display = 'flex';  // forza display prima di show
-  void ov.offsetWidth;         // reflow
-  ov.classList.add('show');
+  if(ov){
+    ov.style.display = 'flex';
+    void ov.offsetWidth;
+    ov.classList.add('show');
+  }
 
   setStatus(
     isEntrata ? '✅' : '🚪',
@@ -2653,7 +2660,7 @@ function renderTabella(){
       '<td>'+formatDate(String(p.data))+'</td>'+
       '<td>'+p.ora+'</td>'+
       '<td>'+p.nome+' '+p.cognome+edit+man+'</td>'+
-      '<td style="color:var(--sub)">'+p.id+'</td>'+
+      '<td style="color:var(--sub)">'+( p.empId||p.barcode||p.id )+'</td>'+
       '<td><span class="badge '+cls+'">'+p.tipo+'</span></td>'+
       '<td style="font-size:.72rem;color:var(--sub);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+(p.luogo||'')+'">'+(p.luogo||'')+'</td>'+
       '<td style="font-size:.72rem;color:var(--sub);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+(p.nota||'')+'">'+(p.nota||'')+'</td>'+
