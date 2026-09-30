@@ -1340,10 +1340,11 @@ function inviaReportEmail() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        smtp: { user: fromEmail, from: fromEmail, fromName: fromName },
         to: email,
         subject: subject,
-        html: htmlReport
+        html: htmlReport,
+        fromName: fromName,
+        fromEmail: fromEmail
       })
     });
   }).then(function(r) {
