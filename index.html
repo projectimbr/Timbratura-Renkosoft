@@ -1164,6 +1164,208 @@ window.timbratura = timbratura;
 
 
 
+
+// ── REPORT EMAIL ─────────────────────────────────────────────────
+var _WORKER_URL = 'https://timbrature-mailer.projectimbr.workers.dev';
+
+function onReportPeriodo() {
+  var p = document.getElementById('rep-periodo').value;
+  var cd = document.getElementById('rep-custom-dates');
+  if(cd) cd.style.display = (p === 'custom') ? 'flex' : 'none';
+}
+
+function caricaConfigReport() {
+  var shopId = getShopId();
+  if(!shopId) return;
+  getShopSettingsPublic(shopId).then(function(r) {
+    if(!r || !r.success) return;
+    var s = r.settings || {};
+    var repConf = s.reportEmail || {};
+    if(repConf.email) document.getElementById('rep-email').value = repConf.email;
+    if(repConf.fromName) document.getElementById('rep-from-name').value = repConf.fromName;
+    if(repConf.fromEmail) document.getElementById('rep-from-email').value = repConf.fromEmail;
+    if(repConf.subject) document.getElementById('rep-subject').value = repConf.subject;
+    // Popola select dipendenti
+    var sel = document.getElementById('rep-dip');
+    if(sel && _dipendenti && _dipendenti.length) {
+      sel.innerHTML = '<option value="">Tutti</option>';
+      _dipendenti.forEach(function(d) {
+        var o = document.createElement('option');
+        o.value = d.id;
+        o.textContent = (d.nome||'') + ' ' + (d.cognome||'');
+        sel.appendChild(o);
+      });
+    }
+  });
+}
+
+function salvaConfigReport() {
+  var shopId = getShopId();
+  if(!shopId) { toast('Effettua il login','err'); return; }
+  var conf = {
+    email:     document.getElementById('rep-email').value.trim(),
+    fromName:  document.getElementById('rep-from-name').value.trim() || 'Timbrature',
+    fromEmail: document.getElementById('rep-from-email').value.trim(),
+    subject:   document.getElementById('rep-subject').value.trim() || 'Report presenze'
+  };
+  if(!conf.email) { toast('Inserisci email destinatario','err'); return; }
+  getShopSettingsPublic(shopId).then(function(r) {
+    var s = (r && r.settings) || {};
+    s.reportEmail = conf;
+    return salvaImpostazioni(shopId, s);
+  }).then(function(r) {
+    if(r && r.success) {
+      var msg = document.getElementById('rep-save-msg');
+      if(msg) { msg.style.display='block'; setTimeout(function(){msg.style.display='none';},3000); }
+    } else { toast('Errore salvataggio','err'); }
+  });
+}
+
+function inviaReportEmail() {
+  var shopId = getShopId();
+  if(!shopId) { toast('Effettua il login','err'); return; }
+  
+  var email = document.getElementById('rep-email').value.trim();
+  if(!email) { toast('Salva prima la configurazione email','err'); return; }
+
+  var periodo = document.getElementById('rep-periodo').value;
+  var now = new Date();
+  var da, a, titoloPeriodo;
+  
+  function pad(n) { return String(n).padStart(2,'0'); }
+  
+  if(periodo === 'mese-corrente') {
+    da = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-01';
+    var lastDay = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+    a  = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(lastDay);
+    titoloPeriodo = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'][now.getMonth()] + ' ' + now.getFullYear();
+  } else if(periodo === 'mese-scorso') {
+    var ms = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    da = ms.getFullYear() + '-' + pad(ms.getMonth()+1) + '-01';
+    var lastDayMs = new Date(ms.getFullYear(), ms.getMonth()+1, 0).getDate();
+    a  = ms.getFullYear() + '-' + pad(ms.getMonth()+1) + '-' + pad(lastDayMs);
+    titoloPeriodo = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'][ms.getMonth()] + ' ' + ms.getFullYear();
+  } else {
+    da = document.getElementById('rep-da').value;
+    a  = document.getElementById('rep-a').value;
+    if(!da || !a) { toast('Seleziona il periodo','err'); return; }
+    titoloPeriodo = da + ' → ' + a;
+  }
+
+  var empId = document.getElementById('rep-dip').value || null;
+  var btn = document.getElementById('rep-btn-invia');
+  var status = document.getElementById('rep-status');
+  btn.disabled = true;
+  btn.textContent = '⏳ Generazione in corso...';
+  status.style.display = 'block';
+  status.style.color = 'var(--sub)';
+  status.textContent = '📊 Recupero dati dal database...';
+
+  getPunches(shopId, da, a, empId).then(function(punches) {
+    status.textContent = '📝 Generazione report HTML...';
+    
+    // Raggruppa per dipendente
+    var byEmp = {};
+    punches.forEach(function(p) {
+      var eid = p.empId || p.barcode;
+      if(!byEmp[eid]) byEmp[eid] = { nome:(p.nome||'')+' '+(p.cognome||''), punches:[] };
+      byEmp[eid].punches.push(p);
+    });
+
+    // Genera HTML del report
+    var shopNome = (_session && _session.shopNome) || 'Timbrature';
+    var oggi = new Date().toLocaleDateString('it-IT');
+    
+    var rows = '';
+    Object.keys(byEmp).forEach(function(eid) {
+      var emp = byEmp[eid];
+      var entr = emp.punches.filter(function(p){return p.tipo==='ENTRATA';});
+      var usc  = emp.punches.filter(function(p){return p.tipo==='USCITA';});
+      // Calcola ore totali
+      var minTot = 0;
+      var sorted = emp.punches.slice().sort(function(a,b){return a.data+a.ora < b.data+b.ora?-1:1;});
+      var lastIn = null;
+      sorted.forEach(function(p){
+        if(p.tipo==='ENTRATA') { lastIn=p.data+'T'+p.ora; }
+        else if(p.tipo==='USCITA' && lastIn) {
+          minTot += (new Date(p.data+'T'+p.ora) - new Date(lastIn)) / 60000;
+          lastIn = null;
+        }
+      });
+      var ore = Math.floor(minTot/60), min = Math.round(minTot%60);
+      rows += '<tr><td style="padding:8px;border:1px solid #ddd;font-weight:600;">'+emp.nome+'</td>'+
+              '<td style="padding:8px;border:1px solid #ddd;text-align:center;">'+entr.length+'</td>'+
+              '<td style="padding:8px;border:1px solid #ddd;text-align:center;">'+usc.length+'</td>'+
+              '<td style="padding:8px;border:1px solid #ddd;text-align:center;font-weight:700;">'+ore+'h '+String(min).padStart(2,'0')+'m</td>'+
+              '<td style="padding:8px;border:1px solid #ddd;color:'+(entr.length!==usc.length?'#e74c3c':'#27ae60')+';text-align:center;">'+(entr.length!==usc.length?'⚠️ Anomalia':'✅ OK')+'</td></tr>';
+    });
+
+    // Dettaglio timbrature
+    var dettaglio = '';
+    punches.sort(function(a,b){return a.data+a.ora<b.data+b.ora?-1:1;}).forEach(function(p){
+      dettaglio += '<tr>'+
+        '<td style="padding:6px 8px;border:1px solid #eee;">'+formatDate(p.data)+'</td>'+
+        '<td style="padding:6px 8px;border:1px solid #eee;">'+p.ora+'</td>'+
+        '<td style="padding:6px 8px;border:1px solid #eee;font-weight:600;">'+(p.nome||'')+' '+(p.cognome||'')+'</td>'+
+        '<td style="padding:6px 8px;border:1px solid #eee;color:'+(p.tipo==='ENTRATA'?'#27ae60':'#e74c3c')+';font-weight:700;">'+p.tipo+'</td>'+
+        '<td style="padding:6px 8px;border:1px solid #eee;color:#888;">'+(p.nota||'')+'</td></tr>';
+    });
+
+    var htmlReport = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+
+      'body{font-family:Arial,sans-serif;color:#1a1a2e;max-width:900px;margin:0 auto;padding:20px;}'+
+      'h1{color:#1a3a5c;border-bottom:3px solid #2980b9;padding-bottom:10px;}'+
+      'h2{color:#2c3e50;margin-top:30px;}'+
+      'table{width:100%;border-collapse:collapse;margin-top:10px;}'+
+      'th{background:#1a3a5c;color:#fff;padding:10px 8px;text-align:left;}'+
+      '</style></head><body>'+
+      '<h1>📊 Report Presenze — '+shopNome+'</h1>'+
+      '<p style="color:#666;">Periodo: <strong>'+titoloPeriodo+'</strong> | Generato il: '+oggi+' | Totale timbrature: <strong>'+punches.length+'</strong></p>'+
+      '<h2>Riepilogo per dipendente</h2>'+
+      '<table><thead><tr>'+
+      '<th>Dipendente</th><th>Entrate</th><th>Uscite</th><th>Ore totali</th><th>Stato</th>'+
+      '</tr></thead><tbody>'+rows+'</tbody></table>'+
+      '<h2>Dettaglio timbrature</h2>'+
+      '<table><thead><tr>'+
+      '<th>Data</th><th>Ora</th><th>Dipendente</th><th>Tipo</th><th>Nota</th>'+
+      '</tr></thead><tbody>'+dettaglio+'</tbody></table>'+
+      '</body></html>';
+
+    var fromEmail = document.getElementById('rep-from-email').value.trim() || 'noreply@timbrature.app';
+    var fromName  = document.getElementById('rep-from-name').value.trim() || 'Timbrature';
+    var subject   = (document.getElementById('rep-subject').value.trim() || 'Report presenze') + ' — ' + titoloPeriodo;
+
+    status.textContent = '📧 Invio email in corso...';
+
+    return fetch(_WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        smtp: { user: fromEmail, from: fromEmail, fromName: fromName },
+        to: email,
+        subject: subject,
+        html: htmlReport
+      })
+    });
+  }).then(function(r) {
+    return r.json();
+  }).then(function(r) {
+    btn.disabled = false;
+    btn.textContent = '📧 Genera e Invia Report';
+    if(r && r.success) {
+      status.style.color = 'var(--grn)';
+      status.textContent = '✅ Report inviato con successo a ' + email;
+    } else {
+      status.style.color = 'var(--red)';
+      status.textContent = '❌ Errore: ' + (r.message || 'Invio fallito');
+    }
+  }).catch(function(e) {
+    btn.disabled = false;
+    btn.textContent = '📧 Genera e Invia Report';
+    status.style.color = 'var(--red)';
+    status.textContent = '❌ Errore: ' + e.message;
+  });
+}
+
 </script>
 
 <script>
@@ -2594,6 +2796,7 @@ function navTo(id, btn){
   if(id === 'dipendenti') renderDipendenti();
   if(id === 'impostazioni') renderLuoghiEdit();
   if(id === 'ferie'){ caricaFerie(); caricaStoricoAssenze(); }
+  if(id === 'report'){ caricaConfigReport(); }
 }
 
 // ── TEMA ─────────────────────────────────────────────────
@@ -4848,108 +5051,73 @@ window.addEventListener('appinstalled', function() {
 
       <!-- ── SEZIONE: REPORT EMAIL ───────────────────────── -->
       <div class="sez" id="sez-report">
-        <span style="font-family:var(--head);font-size:.95rem;font-weight:800;display:block;margin-bottom:14px;">📬 Report Automatici via Email</span>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-          <!-- Config Email -->
-          <div class="ca">
-            <div class="cat">⚙️ Configurazione</div>
-            <label style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--sub);display:block;margin-bottom:5px;">Email destinatario</label>
-            <input type="email" class="fi" id="rp-email" placeholder="nome@email.com" style="width:100%;margin-bottom:10px;">
-            <button class="hbtn hbtn-b" style="width:100%;" onclick="salvaEmailReport()">💾 Salva email</button>
-            <div id="rp-email-attuale" style="font-size:.7rem;color:var(--sub);margin-top:8px;"></div>
-          </div>
-          <!-- Invio Manuale -->
-          <div class="ca">
-            <div class="cat">📤 Invia ora</div>
-            <button class="hbtn hbtn-g" style="width:100%;margin-bottom:8px;" onclick="inviaSettimanale()">
-              📅 Report Settimanale (settimana corrente)
-            </button>
-            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-              <select class="fi" id="rp-anno" style="width:80px;"></select>
-              <select class="fi" id="rp-mese" style="width:110px;">
-                <option value="1">Gennaio</option><option value="2">Febbraio</option>
-                <option value="3">Marzo</option><option value="4">Aprile</option>
-                <option value="5">Maggio</option><option value="6">Giugno</option>
-                <option value="7">Luglio</option><option value="8">Agosto</option>
-                <option value="9">Settembre</option><option value="10">Ottobre</option>
-                <option value="11">Novembre</option><option value="12">Dicembre</option>
-              </select>
-              <button class="hbtn hbtn-b" onclick="inviaReport()">📊 Mensile</button>
-            </div>
-          </div>
+  <div style="max-width:800px;margin:0 auto;">
+    <div style="font-family:var(--head);font-size:1.1rem;font-weight:800;margin-bottom:20px;">📬 Report via Email</div>
+
+    <!-- Config Email -->
+    <div class="ca" style="margin-bottom:16px;">
+      <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--sub);margin-bottom:12px;">⚙️ Configurazione</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div>
+          <div class="fl">Email destinatario</div>
+          <input class="fi" id="rep-email" type="email" placeholder="destinatario@email.com" style="width:100%;">
         </div>
-        <div class="ca" style="margin-top:12px;">
-          <div class="cat">ℹ️ Come funziona</div>
-          <div style="font-size:.75rem;color:var(--sub);line-height:1.6;">
-            Il report viene inviato via email all'indirizzo configurato.<br>
-            Contiene: riepilogo ore per dipendente, straordinari, anomalie del periodo.<br>
-            Autorizza GAS a inviare email: <strong>Servizi → MailApp</strong> deve essere attivo nel progetto.
-          </div>
+        <div>
+          <div class="fl">Nome mittente</div>
+          <input class="fi" id="rep-from-name" type="text" placeholder="Timbrature" style="width:100%;">
         </div>
       </div>
-
-      <!-- ── SEZIONE: EXPORT ────────────────────────────── -->
-      <div class="sez" id="sez-export">
-        <div class="exp-box">
-          <h3>⬇️ Esporta dati timbrature</h3>
-          <div class="filtri-row" style="flex-direction:column;align-items:flex-start;gap:12px;">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-              <span class="fl">Da:</span>
-              <input type="date" class="fi" id="ex-da">
-              <span class="fl">A:</span>
-              <input type="date" class="fi" id="ex-a">
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-              <span class="fl">Dipendente:</span>
-              <select class="fi" id="ex-dip" style="min-width:160px;">
-                <option value="">Tutti i dipendenti</option>
-              </select>
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
-              <button class="abtn abtn-save" onclick="esportaExcelFormattato()" title="Excel con intestazioni, colori e colonne ottimizzate">
-                📊 Excel formattato
-              </button>
-              <button class="abtn" onclick="esportaExcelEx()" style="background:rgba(41,128,185,.12);color:#5dade2;border:1px solid rgba(41,128,185,.3);" title="Excel semplice dati grezzi">
-                📋 Excel semplice
-              </button>
-              <button class="abtn" onclick="esportaPDF()" style="background:rgba(231,76,60,.12);color:#e74c3c;border:1px solid rgba(231,76,60,.3);" title="PDF con tabella timbrature">
-                📄 PDF
-              </button>
-              <button class="abtn abtn-c" onclick="esportaCSVEx()">⬇ CSV</button>
-            </div>
-          </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div>
+          <div class="fl">Email mittente (from)</div>
+          <input class="fi" id="rep-from-email" type="email" placeholder="noreply@tuodominio.com" style="width:100%;">
         </div>
-
-        <div class="exp-box" style="margin-top:12px;">
-          <h3>📅 Riepilogo mensile per operatore</h3>
-          <div class="filtri-row" style="flex-wrap:wrap;gap:8px;">
-            <span class="fl">Anno:</span>
-            <input type="number" class="fi" id="ex-anno" value="" min="2020" max="2100" style="width:80px;">
-            <span class="fl">Mese:</span>
-            <select class="fi" id="ex-mese">
-              <option value="1">Gennaio</option><option value="2">Febbraio</option>
-              <option value="3">Marzo</option><option value="4">Aprile</option>
-              <option value="5">Maggio</option><option value="6">Giugno</option>
-              <option value="7">Luglio</option><option value="8">Agosto</option>
-              <option value="9">Settembre</option><option value="10">Ottobre</option>
-              <option value="11">Novembre</option><option value="12">Dicembre</option>
-            </select>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="abtn abtn-save" onclick="esportaRiepilogoMensile()">📊 Excel semplice</button>
-              <button class="abtn" style="background:rgba(26,188,156,.12);color:#1abc9c;border:1px solid rgba(26,188,156,.3);"
-                onclick="esportaRiepilogoFormattato()">🎨 Excel formattato</button>
-              <button class="abtn" style="background:rgba(231,76,60,.12);color:#e74c3c;border:1px solid rgba(231,76,60,.3);"
-                onclick="esportaRiepilogoPDF()">📄 PDF riepilogo</button>
-            </div>
-          </div>
-          <div style="font-size:.7rem;color:var(--sub);margin-top:8px;">
-            Genera un foglio Excel con tutti i giorni del mese e le ore lavorate per ogni dipendente.
-          </div>
+        <div>
+          <div class="fl">Oggetto email</div>
+          <input class="fi" id="rep-subject" type="text" placeholder="Report presenze" style="width:100%;">
         </div>
       </div>
+      <button class="hbtn hbtn-b" onclick="salvaConfigReport()" style="width:100%;">💾 Salva configurazione</button>
+      <div id="rep-save-msg" style="display:none;margin-top:8px;font-size:.8rem;color:var(--grn);">✅ Configurazione salvata</div>
+    </div>
 
+    <!-- Invia Report -->
+    <div class="ca">
+      <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--sub);margin-bottom:12px;">📤 Invia Report</div>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+        <div>
+          <div class="fl">Periodo</div>
+          <select class="fi" id="rep-periodo" onchange="onReportPeriodo()" style="min-width:180px;">
+            <option value="mese-corrente">Mese corrente</option>
+            <option value="mese-scorso">Mese scorso</option>
+            <option value="custom">Periodo personalizzato</option>
+          </select>
+        </div>
+        <div id="rep-custom-dates" style="display:none;display:flex;gap:8px;">
+          <div>
+            <div class="fl">Dal</div>
+            <input class="fi" id="rep-da" type="date">
+          </div>
+          <div>
+            <div class="fl">Al</div>
+            <input class="fi" id="rep-a" type="date">
+          </div>
+        </div>
+        <div>
+          <div class="fl">Dipendente</div>
+          <select class="fi" id="rep-dip" style="min-width:160px;">
+            <option value="">Tutti</option>
+          </select>
+        </div>
+      </div>
+      <button class="hbtn hbtn-b" onclick="inviaReportEmail()" id="rep-btn-invia" style="width:100%;padding:12px;font-size:1rem;">
+        📧 Genera e Invia Report
+      </button>
+      <div id="rep-status" style="margin-top:12px;font-size:.85rem;display:none;"></div>
+    </div>
+  </div>
 
-      <div class="sez" id="sez-impostazioni">
+id="sez-impostazioni">
         <div class="exp-box">
           <h3>⚙️ Impostazioni Scanner e App</h3>
 
