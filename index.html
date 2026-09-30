@@ -1905,7 +1905,6 @@ function processBarcode(){
   inp.value = '';
   if(!code || busy) return;
 
-  // Determina shopId: da sessione operatore OPPURE da URL ?c=SHOPXXX
   var shopId = (_session && _session.shopId) ? _session.shopId
              : (_clientId ? _clientId : null);
   if(!shopId){
@@ -1915,29 +1914,15 @@ function processBarcode(){
 
   busy = true;
   _lastBarcode = code;
-  _pendingBarcode = code;
 
-  // Feedback visivo immediato
   var sb = document.getElementById('status-bar');
-  if(sb){ sb.innerHTML='<span class="si">⏳</span><span>Verifica badge...</span>'; sb.className=''; }
+  if(sb){ sb.innerHTML='<span>⏳ Verifica badge...</span>'; }
 
-  // Controlla flag mostraNota (da shopSettings del negozio, default TRUE)
-  var mostraNota = getSetting('mostraNota', true);
-
-  if(!mostraNota){
-    // Popup nota DISABILITATO → chiama GAS direttamente
-    _pendingBarcode = null;
-    showSpinner(true);
-    google.script.run
-      .withSuccessHandler(onSuccess)
-      .withFailureHandler(onFailure)
-      .timbratura(shopId, code);
-    return;
-  }
-
-  // Popup nota ABILITATO → apri popup poi chiama GAS in confermaNota/chiudiNota
-  var emp = (_dipendenti||[]).filter(function(d){ return String(d.id)===String(code); })[0];
-  _apriNotaPreTimbratura(code, emp, shopId);
+  showSpinner(true);
+  google.script.run
+    .withSuccessHandler(onSuccess)
+    .withFailureHandler(onFailure)
+    .timbratura(shopId, code);
 }
 
 function _apriNotaPreTimbratura(code, emp, shopId){
