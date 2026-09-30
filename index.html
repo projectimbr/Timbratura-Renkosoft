@@ -2024,14 +2024,14 @@ function mostraConferma(res){
   if(card) card.className = 'ov-card ' + cls;
 
   var fill = document.getElementById('ov-bar-fill');
-  if(fill) fill.className = 'ov-bar-fill ' + cls;
-  if(fill) fill.style.animationDuration = (AUTO_CLOSE||3000) + 'ms';
-  if(fill){ fill.style.animation='none'; void fill.offsetWidth; fill.style.animation=''; }
+  if(fill){
+    fill.className = 'ov-bar-fill ' + cls;
+    fill.style.animationDuration = (AUTO_CLOSE||3000) + 'ms';
+    fill.style.animation='none'; void fill.offsetWidth; fill.style.animation='';
+  }
 
   var ov = document.getElementById('overlay');
-  ov.style.display = 'flex';  // forza display prima di show
-  void ov.offsetWidth;         // reflow
-  ov.classList.add('show');
+  if(ov){ ov.style.display='flex'; void ov.offsetWidth; ov.classList.add('show'); }
 
   setStatus(
     isEntrata ? '✅' : '🚪',
@@ -2272,6 +2272,13 @@ function chiudiOverlay(){
   clearTimeout(_ovTimer);
   busy = false;
   refocus();
+}
+
+function chiudiErrore(){
+  var ov=document.getElementById('err-overlay');
+  if(ov) ov.classList.remove('show');
+  busy=false;
+  if(typeof refocus==='function') refocus();
 }
 
 function mostraErrore(msg){
