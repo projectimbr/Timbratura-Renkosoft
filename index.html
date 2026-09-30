@@ -2794,7 +2794,7 @@ function navTo(id, btn){
   if(id === 'oggi')      loadOggi();
   if(id === 'calendario') renderCalendar();
   if(id === 'dipendenti') renderDipendenti();
-  if(id === 'impostazioni') renderLuoghiEdit();
+  if(id === 'impostazioni'){ renderLuoghiEdit(); if(typeof caricaImpostazioniAll==='function') caricaImpostazioniAll(); }
   if(id === 'ferie'){ caricaFerie(); caricaStoricoAssenze(); }
   if(id === 'report'){ caricaConfigReport(); }
 }
