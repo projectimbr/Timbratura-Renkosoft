@@ -1126,7 +1126,11 @@ function makeRunner() {
   Object.keys(_FNS).forEach(function(name) {
     runner[name] = function() {
       var args = Array.prototype.slice.call(arguments);
-      _FNS[name].apply(null, args).then(_ok).catch(_err);
+      _FNS[name].apply(null, args).then(function(r) {
+        try { _ok(r); } catch(e) { console.error('[SB callback error]', e); }
+      }).catch(function(e) {
+        try { _err(e); } catch(e2) { console.error('[SB err handler error]', e2); }
+      });
     };
   });
   return runner;
