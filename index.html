@@ -1203,10 +1203,8 @@ function salvaConfigReport() {
   var shopId = getShopId();
   if(!shopId) { toast('Effettua il login','err'); return; }
   var conf = {
-    email:     document.getElementById('rep-email').value.trim(),
-    fromName:  document.getElementById('rep-from-name').value.trim() || 'Timbrature',
-    fromEmail: document.getElementById('rep-from-email').value.trim(),
-    subject:   document.getElementById('rep-subject').value.trim() || 'Report presenze'
+    email:   document.getElementById('rep-email').value.trim(),
+    subject: document.getElementById('rep-subject').value.trim() || 'Report presenze'
   };
   if(!conf.email) { toast('Inserisci email destinatario','err'); return; }
   getShopSettingsPublic(shopId).then(function(r) {
@@ -1330,9 +1328,7 @@ function inviaReportEmail() {
       '</tr></thead><tbody>'+dettaglio+'</tbody></table>'+
       '</body></html>';
 
-    var fromEmail = document.getElementById('rep-from-email').value.trim() || 'noreply@timbrature.app';
-    var fromName  = document.getElementById('rep-from-name').value.trim() || 'Timbrature';
-    var subject   = (document.getElementById('rep-subject').value.trim() || 'Report presenze') + ' — ' + titoloPeriodo;
+      var subject = (document.getElementById('rep-subject').value.trim() || 'Report presenze') + ' — ' + titoloPeriodo;
 
     status.textContent = '📧 Invio email in corso...';
 
@@ -1342,9 +1338,7 @@ function inviaReportEmail() {
       body: JSON.stringify({
         to: email,
         subject: subject,
-        html: htmlReport,
-        fromName: fromName,
-        fromEmail: fromEmail
+        html: htmlReport
       })
     });
   }).then(function(r) {
@@ -5060,37 +5054,25 @@ window.addEventListener('appinstalled', function() {
 
       <!-- ── SEZIONE: REPORT EMAIL ───────────────────────── -->
       <div class="sez" id="sez-report">
-  <div style="max-width:800px;margin:0 auto;">
+  <div style="max-width:700px;margin:0 auto;">
     <div style="font-family:var(--head);font-size:1.1rem;font-weight:800;margin-bottom:20px;">📬 Report via Email</div>
 
-    <!-- Config Email -->
     <div class="ca" style="margin-bottom:16px;">
-      <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--sub);margin-bottom:12px;">⚙️ Configurazione</div>
+      <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--sub);margin-bottom:12px;">✉️ Destinatario</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
         <div>
-          <div class="fl">Email destinatario</div>
+          <div class="fl">Email destinatario *</div>
           <input class="fi" id="rep-email" type="email" placeholder="destinatario@email.com" style="width:100%;">
         </div>
         <div>
-          <div class="fl">Nome mittente</div>
-          <input class="fi" id="rep-from-name" type="text" placeholder="Timbrature" style="width:100%;">
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-        <div>
-          <div class="fl">Email mittente (from)</div>
-          <input class="fi" id="rep-from-email" type="email" placeholder="noreply@tuodominio.com" style="width:100%;">
-        </div>
-        <div>
           <div class="fl">Oggetto email</div>
-          <input class="fi" id="rep-subject" type="text" placeholder="Report presenze" style="width:100%;">
+          <input class="fi" id="rep-subject" type="text" placeholder="Report presenze mensile" style="width:100%;">
         </div>
       </div>
-      <button class="hbtn hbtn-b" onclick="salvaConfigReport()" style="width:100%;">💾 Salva configurazione</button>
-      <div id="rep-save-msg" style="display:none;margin-top:8px;font-size:.8rem;color:var(--grn);">✅ Configurazione salvata</div>
+      <button class="hbtn hbtn-b" onclick="salvaConfigReport()" style="width:100%;">💾 Salva</button>
+      <div id="rep-save-msg" style="display:none;margin-top:8px;font-size:.8rem;color:var(--grn);">✅ Salvato</div>
     </div>
 
-    <!-- Invia Report -->
     <div class="ca">
       <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--sub);margin-bottom:12px;">📤 Invia Report</div>
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
@@ -5102,7 +5084,7 @@ window.addEventListener('appinstalled', function() {
             <option value="custom">Periodo personalizzato</option>
           </select>
         </div>
-        <div id="rep-custom-dates" style="display:none;display:flex;gap:8px;">
+        <div id="rep-custom-dates" style="display:none;gap:8px;flex-wrap:wrap;">
           <div>
             <div class="fl">Dal</div>
             <input class="fi" id="rep-da" type="date">
@@ -5126,9 +5108,7 @@ window.addEventListener('appinstalled', function() {
     </div>
   </div>
 
-
-</div>
-      <div class="sez" id="sez-impostazioni">
+class="sez" id="sez-impostazioni">
         <div class="exp-box">
           <h3>⚙️ Impostazioni Scanner e App</h3>
 
@@ -5465,4 +5445,32 @@ window.addEventListener('appinstalled', function() {
 
 
 </body>
-</html>
+</html>async function timbratura(shopId, barcode) {
+  if(!shopId) return {success:false, message:'ShopId mancante'};
+  try {
+    var bid = String(barcode).trim();
+    var oggi = new Date().toISOString().split('T')[0];
+    var results = await Promise.all([
+      sb('employees?shop_id=eq.' + shopId + '&id=eq.' + encodeURIComponent(bid)),
+      sb('assenze?shop_id=eq.' + shopId + '&emp_id=eq.' + encodeURIComponent(bid) + '&data=lte.' + oggi + '&data_fine=gte.' + oggi),
+      sb('punches?shop_id=eq.' + shopId + '&emp_id=eq.' + encodeURIComponent(bid) + '&data=eq.' + oggi + '&order=ora.desc&limit=1')
+    ]);
+    var emp = results[0] && results[0][0];
+    if(!emp) return {success:false, message:'Badge non riconosciuto'};
+    var ass = results[1];
+    if(ass && ass.length) {
+      var t = ass[0].tipo;
+      if(t==='FERIE'||t==='PERMESSO'||t==='MALATTIA')
+        return {success:false, message: emp.nome + ' ha ' + t + ' oggi'};
+    }
+    var last = results[2];
+    var tipo = (!last || !last[0] || last[0].tipo === 'USCITA') ? 'ENTRATA' : 'USCITA';
+    var ora = new Date().toTimeString().split(' ')[0];
+    await sb('punches', {method:'POST', prefer:'return=minimal', body:{
+      shop_id: shopId, emp_id: bid, barcode: bid,
+      nome: emp.nome, cognome: emp.cognome,
+      data: oggi, ora: ora, tipo: tipo
+    }});
+    return {success:true, tipo:tipo, nome:emp.nome, cognome:emp.cognome, ora:ora, data:oggi};
+  } catch(e) { return {success:false, message:e.message}; }
+}
