@@ -3007,15 +3007,18 @@ function apriGiorno(dateStr, dayNum){
   var myEmpG = _myEmpId();
   var dipG = (myEmpG && myEmpG !== '__NONE__') ? myEmpG : null;
 
-  google.script.run
-    .withSuccessHandler(function(res){ _punches2 = _filterBySession(res)||[]; _renderGiorno(); })
-    .withFailureHandler(function(){ _punches2 = []; _renderGiorno(); })
-    .getPunches(_shopId, dateStr, dateStr, dipG);
-
-  google.script.run
-    .withSuccessHandler(function(res){ _assenze2 = _filterBySession(res)||[]; _renderGiorno(); })
-    .withFailureHandler(function(){ _assenze2 = []; _renderGiorno(); })
-    .getAssenze(_shopId, dateStr, dateStr, dipG);
+  // Chiamate dirette Supabase in parallelo
+  Promise.all([
+    getPunches(_shopId, dateStr, dateStr, dipG || null),
+    getAssenze(_shopId, dateStr, dateStr, dipG || null)
+  ]).then(function(results) {
+    _punches2 = _filterBySession(results[0]) || [];
+    _assenze2 = _filterBySession(results[1]) || [];
+    _renderGiorno();
+  }).catch(function() {
+    _punches2 = []; _assenze2 = [];
+    _renderGiorno();
+  });
 }
 
 function chiudiDet(){
