@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0b1623">
 <link rel="manifest" href="?page=manifest" crossorigin="use-credentials">
-<title>Timbrature v1790152955</title>
+<title>Timbrature</title>
 <!-- Google Fonts: usa system fonts per compatibilità CSP GAS -->
 <style>
 /* ── TOKENS ─────────────────────────────────────────────── */
@@ -663,53 +663,491 @@ input[type=date].fi{color-scheme:dark;}
 <!-- SPINNER -->
 <div id="spinner"><div class="spin-ring"></div></div>
 
-<!-- SUPABASE LAYER -->
 <script>
+/* ═══════════════════════════════════════════════════════════════
+   SUPABASE LAYER - Rimpiazza completamente google.script.run
+   URL: https://ayljuhtujbjdalsvpkas.supabase.co
+   ═══════════════════════════════════════════════════════════════ */
+(function() {
 'use strict';
-const _SB_URL='https://ayljuhtujbjdalsvpkas.supabase.co',_SB_KEY='sb_publishable_9e_DCKh2M25EmZA5ZxVzfA_HMnKM7ek';
-async function _sb(path,opts){opts=opts||{};const r=await fetch(_SB_URL+'/rest/v1/'+path,{method:opts.method||'GET',headers:{'apikey':_SB_KEY,'Authorization':'Bearer '+_SB_KEY,'Content-Type':'application/json','Prefer':opts.prefer||'return=representation'},body:opts.body!==undefined?JSON.stringify(opts.body):undefined});if(!r.ok)throw new Error(await r.text());const t=await r.text();return t?JSON.parse(t):null;}
-async function loginOperatore(u,p){try{const us=await _sb('shop_users?username=eq.'+encodeURIComponent(u)+'&attivo=eq.true');if(!us||!us.length)return{success:false,message:'Utente non trovato'};const uu=us[0];if(uu.password!==p)return{success:false,message:'Password errata'};const sh=await _sb('shops?id=eq.'+uu.shop_id);const s=sh&&sh[0];return{success:true,userId:uu.id,username:uu.username,nome:uu.nome,ruolo:uu.ruolo,shopId:uu.shop_id,shopNome:s?s.nome:uu.shop_id,shopSettings:s?s.settings:{},employeeId:uu.employee_id||null,permessi:uu.ruolo==='admin'?{dashboard:true,tabella:true,calendario:true,dipendenti:true,export:true,ore:true,anomalie:true,ferie:true,turni:true,report:true,impostazioni:true,eliminaTimbrature:true,modificaTimbrature:true}:(uu.permessi||{})}}catch(e){return{success:false,message:e.message};}}
-async function getEmployees(shopId){if(!shopId)return[];try{const r=await _sb('employees?shop_id=eq.'+shopId+'&order=cognome');return(r||[]).map(e=>(({id:e.id,nome:e.nome,cognome:e.cognome,ruolo:e.ruolo,colore:e.colore,orario:e.orario||{},giorniRiposo:e.giorni_riposo||[]})));}catch(e){return[];}}
-async function getEmployeesForCache(s){return getEmployees(s);}
-async function saveEmployee(shopId,emp){if(!shopId)return{success:false};try{const body={shop_id:shopId,id:String(emp.id),nome:emp.nome||'',cognome:emp.cognome||'',ruolo:emp.ruolo||'',colore:emp.colore||'#2980b9',orario:emp.orario||{},giorni_riposo:emp.giorniRiposo||[]};const ex=await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+String(emp.id));if(ex&&ex.length)await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+String(emp.id),{method:'PATCH',prefer:'return=minimal',body});else await _sb('employees',{method:'POST',prefer:'return=minimal',body});return{success:true};}catch(e){return{success:false,message:e.message};}}
-async function deleteEmployee(shopId,eid){if(!shopId)return{success:false};try{await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+String(eid),{method:'DELETE',prefer:'return=minimal'});return{success:true};}catch(e){return{success:false,message:e.message};}}
-async function timbratura(shopId,barcode){if(!shopId)return{success:false,message:'ShopId mancante'};try{const oggi=new Date().toISOString().split('T')[0];const[emps,ass,last]=await Promise.all([_sb('employees?shop_id=eq.'+shopId+'&id=eq.'+String(barcode)),_sb('assenze?shop_id=eq.'+shopId+'&emp_id=eq.'+String(barcode)+'&data=lte.'+oggi+'&data_fine=gte.'+oggi),_sb('punches?shop_id=eq.'+shopId+'&emp_id=eq.'+String(barcode)+'&data=eq.'+oggi+'&order=ora.desc&limit=1')]);const emp=emps&&emps[0];if(!emp)return{success:false,message:'Badge non riconosciuto'};if(ass&&ass.length){const t=ass[0].tipo;if(t==='FERIE'||t==='PERMESSO'||t==='MALATTIA')return{success:false,message:emp.nome+' ha '+t+' oggi'};}const tipo=(!last||!last[0]||last[0].tipo==='USCITA')?'ENTRATA':'USCITA';const ora=new Date().toTimeString().split(' ')[0];await _sb('punches',{method:'POST',prefer:'return=minimal',body:{shop_id:shopId,emp_id:String(barcode),barcode:String(barcode),nome:emp.nome,cognome:emp.cognome,data:oggi,ora:ora,tipo:tipo}});return{success:true,tipo,nome:emp.nome,cognome:emp.cognome,ora,data:oggi};}catch(e){return{success:false,message:e.message};}}
 
-async function syncPunches(){return{success:true};}
-async function getPunches(shopId,dateFrom,dateTo,empId){if(!shopId)return[];try{let q='punches?shop_id=eq.'+shopId+'&order=data.desc,ora.desc';if(dateFrom)q+='&data=gte.'+dateFrom;if(dateTo)q+='&data=lte.'+dateTo;if(empId)q+='&emp_id=eq.'+empId;const r=await _sb(q);return(r||[]).map(p=>(({id:p.id,empId:p.emp_id,barcode:p.barcode,nome:p.nome,cognome:p.cognome,data:p.data,ora:p.ora?p.ora.substring(0,8):'',tipo:p.tipo,nota:p.nota||'',manuale:p.manuale||false})));}catch(e){return[];}}
-async function getPunchesAvanzata(shopId,params){params=params||{};const all=await getPunches(shopId,params.dateFrom||null,params.dateTo||null,params.empId||null);return all.filter(p=>{if(params.tipo&&p.tipo!==params.tipo)return false;if(params.nome&&!(p.nome+' '+p.cognome).toLowerCase().includes(params.nome.toLowerCase()))return false;return true;});}
-async function deletePunch(shopId,id){if(!shopId)return{success:false};try{await _sb('punches?id=eq.'+id,{method:'DELETE',prefer:'return=minimal'});return{success:true};}catch(e){return{success:false,message:e.message};}}
-async function addManualPunch(shopId,punch){if(!shopId)return{success:false};try{const emps=await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+punch.id);const emp=emps&&emps[0];await _sb('punches',{method:'POST',prefer:'return=minimal',body:{shop_id:shopId,emp_id:String(punch.id),barcode:String(punch.id),nome:emp?emp.nome:'',cognome:emp?emp.cognome:'',data:punch.data,ora:punch.ora,tipo:punch.tipo,nota:punch.nota||'',manuale:true}});return{success:true};}catch(e){return{success:false,message:e.message};}}
-async function correctPunch(shopId,oD,oI,oT,oO,nd){if(!shopId)return{success:false};try{let q='punches?shop_id=eq.'+shopId+'&emp_id=eq.'+oI+'&data=eq.'+oD+'&tipo=eq.'+oT;if(oO)q+='&ora=like.'+oO.substring(0,5)+'*';const rows=await _sb(q);if(!rows||!rows.length)return{success:false,message:'Non trovata'};const upd={};if(nd.data)upd.data=nd.data;if(nd.ora)upd.ora=nd.ora;if(nd.tipo)upd.tipo=nd.tipo;if(nd.nota!==undefined)upd.nota=nd.nota;await _sb('punches?id=eq.'+rows[0].id,{method:'PATCH',prefer:'return=minimal',body:upd});return{success:true};}catch(e){return{success:false,message:e.message};}}
-async function getAssenze(shopId,dateFrom,dateTo,empId){if(!shopId)return[];try{let q='assenze?shop_id=eq.'+shopId+'&order=data.desc';if(dateFrom)q+='&data=gte.'+dateFrom;if(dateTo)q+='&data_fine=lte.'+dateTo;if(empId)q+='&emp_id=eq.'+empId;const r=await _sb(q);return(r||[]).map(a=>(({id:a.id,empId:a.emp_id,nome:a.nome,cognome:a.cognome,data:a.data,dataFine:a.data_fine,tipo:a.tipo,nota:a.nota||''})));}catch(e){return[];}}
-async function getAssenzeMensili(shopId,year,month){const pad=n=>String(n).padStart(2,'0'),prefix=year+'-'+pad(month),lastDay=new Date(year,month,0).getDate(),da=prefix+'-01',a=prefix+'-'+pad(lastDay);const all=await getAssenze(shopId,da,a,null);const byEmp={};all.forEach(ass=>{if(!byEmp[ass.empId])byEmp[ass.empId]={nome:(ass.nome||'')+' '+(ass.cognome||''),giorni:{},note:{}};const di=new Date(ass.data),df=new Date(ass.dataFine||ass.data);for(let d=new Date(di);d<=df;d.setDate(d.getDate()+1)){const ds=d.toISOString().split('T')[0];if(ds>=da&&ds<=a){const gg=ds.split('-')[2];byEmp[ass.empId].giorni[gg]=ass.tipo;byEmp[ass.empId].note[gg]=ass.nota||'';}};});return{byEmp,lastDay};}
-async function saveAssenza(shopId,ass){if(!shopId)return{success:false};try{const emps=await _sb('employees?shop_id=eq.'+shopId+'&id=eq.'+ass.empId);const emp=emps&&emps[0];if(!emp)return{success:false,message:'Dipendente non trovato'};await _sb('assenze',{method:'POST',prefer:'return=minimal',body:{shop_id:shopId,emp_id:String(ass.empId),nome:emp.nome,cognome:emp.cognome,data:ass.data,data_fine:ass.dataFine||ass.data,tipo:ass.tipo,nota:ass.nota||''}});return{success:true};}catch(e){return{success:false,message:e.message};}}
-async function deleteAssenza(shopId,id){if(!shopId)return{success:false};try{await _sb('assenze?id=eq.'+id,{method:'DELETE',prefer:'return=minimal'});return{success:true};}catch(e){return{success:false,message:e.message};}}
-async function getCalendarData(shopId,year,month){if(!shopId)return{};const pad=n=>String(n).padStart(2,'0'),da=year+'-'+pad(month)+'-01',a=year+'-'+pad(month)+'-'+pad(new Date(year,month,0).getDate());try{const[punches,assenze]=await Promise.all([getPunches(shopId,da,a,null),getAssenze(shopId,da,a,null)]);const bd={};punches.forEach(p=>{const gg=p.data.split('-')[2];if(!bd[gg])bd[gg]={entrate:0,uscite:0,ids:[],assenze:[]};if(p.tipo==='ENTRATA')bd[gg].entrate++;if(p.tipo==='USCITA')bd[gg].uscite++;if(!bd[gg].ids.includes(p.empId))bd[gg].ids.push(p.empId);});assenze.forEach(a=>{const gg=a.data.split('-')[2];if(!bd[gg])bd[gg]={entrate:0,uscite:0,ids:[],assenze:[]};bd[gg].assenze.push({id:a.empId,nome:a.nome,cognome:a.cognome,tipo:a.tipo,nota:a.nota||''});});return bd;}catch(e){return{};}}
-async function getOggiStats(shopId){const oggi=new Date().toISOString().split('T')[0],punch=await getPunches(shopId,oggi,oggi,null),pre={},usc={};punch.forEach(p=>{if(p.tipo==='ENTRATA'){pre[p.empId]=p;delete usc[p.empId];}else{usc[p.empId]=p;delete pre[p.empId];}});return{data:oggi,totale:punch.length,presenti:Object.values(pre),usciti:Object.values(usc),punches:punch};}
-async function getRiepilogoOre(shopId,year,month){if(!shopId)return{employees:[],lastDay:30,soglia:8};const pad=n=>String(n).padStart(2,'0'),prefix=year+'-'+pad(month),lastDay=new Date(year,month,0).getDate(),soglia=8*60,fmt=m=>Math.floor(m/60)+'h'+pad(m%60);try{const punches=await getPunches(shopId,prefix+'-01',prefix+'-'+pad(lastDay),null);const byEmp={};punches.forEach(p=>{const eid=p.empId;if(!byEmp[eid])byEmp[eid]={nome:(p.nome||'')+' '+(p.cognome||''),giorni:{}};const gg=p.data.split('-')[2];if(!byEmp[eid].giorni[gg])byEmp[eid].giorni[gg]=[];byEmp[eid].giorni[gg].push(p);});const result=Object.keys(byEmp).map(eid=>{const emp=byEmp[eid];let totMin=0,totExtra=0,giorniLav=0,nAnom=0;const giorni={};for(let g=1;g<=lastDay;g++){const gg=pad(g),ps=emp.giorni[gg]||[];if(!ps.length){giorni[gg]=null;continue;}const sorted=ps.slice().sort((a,b)=>a.ora<b.ora?-1:1);let minG=0,lastIn=null;sorted.forEach(p=>{if(p.tipo==='ENTRATA')lastIn=p.ora;else if(p.tipo==='USCITA'&&lastIn){const[ah,am]=lastIn.split(':'),[bh,bm]=p.ora.split(':');minG+=(+bh*60+ +bm)-(+ah*60+ +am);lastIn=null;}});const entr=ps.filter(x=>x.tipo==='ENTRATA'),usc=ps.filter(x=>x.tipo==='USCITA'),anom=entr.length!==usc.length;totMin+=minG;if(minG>0)giorniLav++;const extra=Math.max(0,minG-soglia);totExtra+=extra;if(anom)nAnom++;giorni[gg]={min:minG,ore:fmt(minG),extra:extra>0?fmt(extra):'',anom,in:entr.length?entr.sort((a,b)=>a.ora<b.ora?-1:1)[0].ora.substring(0,5):'',out:usc.length?usc.sort((a,b)=>a.ora<b.ora?-1:1)[usc.length-1].ora.substring(0,5):''};}return{id:eid,nome:emp.nome,totOre:fmt(totMin),totMin,straord:totExtra>0?fmt(totExtra):'-',giorniLav,nAnom,giorni};});result.sort((a,b)=>a.nome<b.nome?-1:1);return{employees:result,lastDay,soglia:8};}catch(e){return{employees:[],lastDay:30,soglia:8};}}
-async function getAnomalie(shopId,dateFrom,dateTo){const punches=await getPunches(shopId,dateFrom,dateTo,null),byKey={};punches.forEach(p=>{const k=p.data+'|'+p.empId;if(!byKey[k])byKey[k]=[];byKey[k].push(p);});const an=[];Object.keys(byKey).forEach(k=>{const ps=byKey[k],nome=ps[0].nome+' '+ps[0].cognome,data=ps[0].data,eid=ps[0].empId,entr=ps.filter(p=>p.tipo==='ENTRATA'),usc=ps.filter(p=>p.tipo==='USCITA');if(entr.length>usc.length)an.push({tipo:'ENTRATA_SENZA_USCITA',label:'Entrata senza uscita',data,id:eid,nome,dettaglio:entr.length+' entr, '+usc.length+' usc'});if(usc.length>entr.length)an.push({tipo:'USCITA_SENZA_ENTRATA',label:'Uscita senza entrata',data,id:eid,nome,dettaglio:usc.length+' usc, '+entr.length+' entr'});});an.sort((a,b)=>a.data<b.data?1:-1);return an;}
-async function getReparti(){return[];}
-async function getTurni(){return[];}
-async function saveTurno(){return{success:true};}
-async function deleteTurno(){return{success:true};}
-async function confrontaTurni(){return{};}
-async function getReportEmail(){return null;}
-async function setReportEmail(){return{success:true};}
-async function inviaReportMensile(){return{success:false,message:'Non disponibile'};}
-async function inviaReportSettimanale(){return{success:false,message:'Non disponibile'};}
-async function salvaImpostazioni(shopId,settings){if(!shopId)return{success:false};try{await _sb('shops?id=eq.'+shopId,{method:'PATCH',prefer:'return=minimal',body:{settings:settings}});return{success:true};}catch(e){return{success:false,message:e.message};}}
-async function setOreSoglia(shopId,ore){if(!shopId)return{success:false};try{const sh=await _sb('shops?id=eq.'+shopId);const s=(sh&&sh[0]&&sh[0].settings)||{};s.oreSoglia=ore;await _sb('shops?id=eq.'+shopId,{method:'PATCH',prefer:'return=minimal',body:{settings:s}});return{success:true};}catch(e){return{success:false,message:e.message};}}
-async function getShopSettingsPublic(shopId){try{const r=await _sb('shops?id=eq.'+shopId);const s=r&&r[0];return s?{success:true,settings:s.settings||{},nome:s.nome}:{success:false};}catch(e){return{success:false};}}
-function formatDate(str){if(!str||str.length<10)return str;var p=str.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
-async function warmUp(){return true;}
-async function reverseGeocode(){return'';}
-async function buildXLSXBase64(){return null;}
-async function buildRiepilogoXLSX(){return null;}
+var SB_URL = 'https://ayljuhtujbjdalsvpkas.supabase.co';
+var SB_KEY = 'sb_publishable_9e_DCKh2M25EmZA5ZxVzfA_HMnKM7ek';
 
-const _ALL={loginOperatore,getEmployees,getEmployeesForCache,saveEmployee,deleteEmployee,timbratura,syncPunches,getPunches,getPunchesAvanzata,deletePunch,addManualPunch,correctPunch,getAssenze,getAssenzeMensili,saveAssenza,deleteAssenza,getCalendarData,getOggiStats,getRiepilogoOre,getAnomalie,getReparti,getTurni,saveTurno,deleteTurno,confrontaTurni,getReportEmail,setReportEmail,inviaReportMensile,inviaReportSettimanale,salvaImpostazioni,setOreSoglia,getShopSettingsPublic,warmUp,reverseGeocode,buildXLSXBase64,buildRiepilogoXLSX};
-function _run(){var ok=function(r){return r;},err=function(e){console.error(e);};var o={withSuccessHandler:function(f){ok=f;return o;},withFailureHandler:function(f){err=f;return o;}};Object.keys(_ALL).forEach(function(n){o[n]=function(){var a=Array.prototype.slice.call(arguments);_ALL[n].apply(null,a).then(ok).catch(err);};}); return o;}
-const google={script:{run:new Proxy({},{get:function(_,p){return _run()[p]||function(){};}})}};
+/* ── Helper REST ─────────────────────────────────────────────── */
+function sb(path, opts) {
+  opts = opts || {};
+  return fetch(SB_URL + '/rest/v1/' + path, {
+    method: opts.method || 'GET',
+    headers: {
+      'apikey': SB_KEY,
+      'Authorization': 'Bearer ' + SB_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': opts.prefer || 'return=representation'
+    },
+    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined
+  }).then(function(r) {
+    if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
+    return r.text().then(function(t) { return t ? JSON.parse(t) : null; });
+  });
+}
+
+/* ── AUTH ────────────────────────────────────────────────────── */
+function loginOperatore(username, password) {
+  return sb('shop_users?username=eq.' + encodeURIComponent(username) + '&attivo=eq.true')
+    .then(function(users) {
+      if (!users || !users.length) return { success: false, message: 'Utente non trovato' };
+      var u = users[0];
+      if (u.password !== password) return { success: false, message: 'Password errata' };
+      return sb('shops?id=eq.' + u.shop_id).then(function(shops) {
+        var shop = shops && shops[0];
+        return {
+          success: true, userId: u.id, username: u.username, nome: u.nome,
+          ruolo: u.ruolo, shopId: u.shop_id,
+          shopNome: shop ? shop.nome : u.shop_id,
+          shopSettings: shop ? (shop.settings || {}) : {},
+          employeeId: u.employee_id || null,
+          permessi: u.ruolo === 'admin'
+            ? { dashboard:true,tabella:true,calendario:true,dipendenti:true,export:true,
+                ore:true,anomalie:true,ferie:true,turni:true,report:true,impostazioni:true,
+                eliminaTimbrature:true,modificaTimbrature:true }
+            : (u.permessi || {})
+        };
+      });
+    }).catch(function(e) { return { success: false, message: e.message }; });
+}
+
+/* ── DIPENDENTI ──────────────────────────────────────────────── */
+function getEmployees(shopId) {
+  if (!shopId) return Promise.resolve([]);
+  return sb('employees?shop_id=eq.' + shopId + '&order=cognome')
+    .then(function(r) {
+      return (r || []).map(function(e) {
+        return { id: e.id, nome: e.nome, cognome: e.cognome, ruolo: e.ruolo,
+                 colore: e.colore, orario: e.orario || {}, giorniRiposo: e.giorni_riposo || [] };
+      });
+    }).catch(function() { return []; });
+}
+
+function getEmployeesForCache(shopId) { return getEmployees(shopId); }
+
+function saveEmployee(shopId, emp) {
+  if (!shopId) return Promise.resolve({ success: false });
+  var body = {
+    shop_id: shopId, id: String(emp.id),
+    nome: emp.nome || '', cognome: emp.cognome || '',
+    ruolo: emp.ruolo || '', colore: emp.colore || '#2980b9',
+    orario: emp.orario || {}, giorni_riposo: emp.giorniRiposo || []
+  };
+  return sb('employees?shop_id=eq.' + shopId + '&id=eq.' + String(emp.id))
+    .then(function(ex) {
+      var method = (ex && ex.length) ? 'PATCH' : 'POST';
+      var path = (ex && ex.length)
+        ? 'employees?shop_id=eq.' + shopId + '&id=eq.' + String(emp.id)
+        : 'employees';
+      return sb(path, { method: method, prefer: 'return=minimal', body: body });
+    })
+    .then(function() { return { success: true }; })
+    .catch(function(e) { return { success: false, message: e.message }; });
+}
+
+function deleteEmployee(shopId, empId) {
+  if (!shopId) return Promise.resolve({ success: false });
+  return sb('employees?shop_id=eq.' + shopId + '&id=eq.' + String(empId),
+    { method: 'DELETE', prefer: 'return=minimal' })
+    .then(function() { return { success: true }; })
+    .catch(function(e) { return { success: false, message: e.message }; });
+}
+
+/* ── TIMBRATURA ──────────────────────────────────────────────── */
+function timbratura(shopId, barcode) {
+  if (!shopId) return Promise.resolve({ success: false, message: 'ShopId mancante' });
+  var oggi = new Date().toISOString().split('T')[0];
+  var bid = String(barcode);
+  return Promise.all([
+    sb('employees?shop_id=eq.' + shopId + '&id=eq.' + bid),
+    sb('assenze?shop_id=eq.' + shopId + '&emp_id=eq.' + bid + '&data=lte.' + oggi + '&data_fine=gte.' + oggi),
+    sb('punches?shop_id=eq.' + shopId + '&emp_id=eq.' + bid + '&data=eq.' + oggi + '&order=ora.desc&limit=1')
+  ]).then(function(results) {
+    var emp = results[0] && results[0][0];
+    if (!emp) return { success: false, message: 'Badge non riconosciuto' };
+    var ass = results[1];
+    if (ass && ass.length) {
+      var t = ass[0].tipo;
+      if (t === 'FERIE' || t === 'PERMESSO' || t === 'MALATTIA')
+        return { success: false, message: emp.nome + ' ha ' + t + ' oggi' };
+    }
+    var last = results[2];
+    var tipo = (!last || !last[0] || last[0].tipo === 'USCITA') ? 'ENTRATA' : 'USCITA';
+    var ora = new Date().toTimeString().split(' ')[0];
+    return sb('punches', {
+      method: 'POST', prefer: 'return=minimal',
+      body: { shop_id: shopId, emp_id: bid, barcode: bid,
+              nome: emp.nome, cognome: emp.cognome,
+              data: oggi, ora: ora, tipo: tipo }
+    }).then(function() {
+      return { success: true, tipo: tipo, nome: emp.nome, cognome: emp.cognome, ora: ora, data: oggi };
+    });
+  }).catch(function(e) { return { success: false, message: e.message }; });
+}
+
+function syncPunches() { return Promise.resolve({ success: true }); }
+
+/* ── PUNCHES ─────────────────────────────────────────────────── */
+function getPunches(shopId, dateFrom, dateTo, empId) {
+  if (!shopId) return Promise.resolve([]);
+  var q = 'punches?shop_id=eq.' + shopId + '&order=data.desc,ora.desc';
+  if (dateFrom) q += '&data=gte.' + dateFrom;
+  if (dateTo)   q += '&data=lte.' + dateTo;
+  if (empId)    q += '&emp_id=eq.' + String(empId);
+  return sb(q).then(function(r) {
+    return (r || []).map(function(p) {
+      return { id: p.id, empId: p.emp_id, barcode: p.barcode || p.emp_id,
+               nome: p.nome, cognome: p.cognome, data: p.data,
+               ora: p.ora ? p.ora.substring(0, 8) : '',
+               tipo: p.tipo, nota: p.nota || '', manuale: p.manuale || false };
+    });
+  }).catch(function() { return []; });
+}
+
+function getPunchesAvanzata(shopId, params) {
+  params = params || {};
+  return getPunches(shopId, params.dateFrom || null, params.dateTo || null, params.empId || null)
+    .then(function(all) {
+      return all.filter(function(p) {
+        if (params.tipo && p.tipo !== params.tipo) return false;
+        if (params.nome && !(p.nome + ' ' + p.cognome).toLowerCase().includes(params.nome.toLowerCase())) return false;
+        return true;
+      });
+    });
+}
+
+function deletePunch(shopId, punchId) {
+  if (!shopId) return Promise.resolve({ success: false });
+  return sb('punches?id=eq.' + punchId, { method: 'DELETE', prefer: 'return=minimal' })
+    .then(function() { return { success: true }; })
+    .catch(function(e) { return { success: false, message: e.message }; });
+}
+
+function addManualPunch(shopId, punch) {
+  if (!shopId) return Promise.resolve({ success: false });
+  return sb('employees?shop_id=eq.' + shopId + '&id=eq.' + String(punch.id))
+    .then(function(emps) {
+      var emp = emps && emps[0];
+      return sb('punches', {
+        method: 'POST', prefer: 'return=minimal',
+        body: { shop_id: shopId, emp_id: String(punch.id), barcode: String(punch.id),
+                nome: emp ? emp.nome : '', cognome: emp ? emp.cognome : '',
+                data: punch.data, ora: punch.ora, tipo: punch.tipo,
+                nota: punch.nota || '', manuale: true }
+      });
+    })
+    .then(function() { return { success: true }; })
+    .catch(function(e) { return { success: false, message: e.message }; });
+}
+
+function correctPunch(shopId, origData, origId, origTipo, origOra, nd) {
+  if (!shopId) return Promise.resolve({ success: false });
+  var q = 'punches?shop_id=eq.' + shopId + '&emp_id=eq.' + origId +
+          '&data=eq.' + origData + '&tipo=eq.' + origTipo;
+  if (origOra) q += '&ora=gte.' + origOra.substring(0, 5);
+  return sb(q).then(function(rows) {
+    if (!rows || !rows.length) return { success: false, message: 'Non trovata' };
+    var upd = {};
+    if (nd.data)  upd.data  = nd.data;
+    if (nd.ora)   upd.ora   = nd.ora;
+    if (nd.tipo)  upd.tipo  = nd.tipo;
+    if (nd.nota !== undefined) upd.nota = nd.nota;
+    return sb('punches?id=eq.' + rows[0].id, { method: 'PATCH', prefer: 'return=minimal', body: upd })
+      .then(function() { return { success: true }; });
+  }).catch(function(e) { return { success: false, message: e.message }; });
+}
+
+/* ── ASSENZE ─────────────────────────────────────────────────── */
+function getAssenze(shopId, dateFrom, dateTo, empId) {
+  if (!shopId) return Promise.resolve([]);
+  var q = 'assenze?shop_id=eq.' + shopId + '&order=data.desc';
+  if (dateFrom) q += '&data=gte.' + dateFrom;
+  if (dateTo)   q += '&data_fine=lte.' + dateTo;
+  if (empId)    q += '&emp_id=eq.' + String(empId);
+  return sb(q).then(function(r) {
+    return (r || []).map(function(a) {
+      return { id: a.id, empId: a.emp_id, nome: a.nome, cognome: a.cognome,
+               data: a.data, dataFine: a.data_fine, tipo: a.tipo, nota: a.nota || '' };
+    });
+  }).catch(function() { return []; });
+}
+
+function getAssenzeMensili(shopId, year, month) {
+  function pad(n) { return String(n).padStart(2, '0'); }
+  var prefix = year + '-' + pad(month);
+  var lastDay = new Date(year, month, 0).getDate();
+  var da = prefix + '-01', a = prefix + '-' + pad(lastDay);
+  return getAssenze(shopId, da, a, null).then(function(all) {
+    var byEmp = {};
+    all.forEach(function(ass) {
+      if (!byEmp[ass.empId]) byEmp[ass.empId] = { nome: (ass.nome || '') + ' ' + (ass.cognome || ''), giorni: {}, note: {} };
+      var di = new Date(ass.data + 'T00:00:00');
+      var df = new Date((ass.dataFine || ass.data) + 'T00:00:00');
+      for (var d = new Date(di); d <= df; d.setDate(d.getDate() + 1)) {
+        var ds = d.toISOString().split('T')[0];
+        if (ds >= da && ds <= a) {
+          var gg = ds.split('-')[2];
+          byEmp[ass.empId].giorni[gg] = ass.tipo;
+          byEmp[ass.empId].note[gg] = ass.nota || '';
+        }
+      }
+    });
+    return { byEmp: byEmp, lastDay: lastDay };
+  });
+}
+
+function saveAssenza(shopId, ass) {
+  if (!shopId) return Promise.resolve({ success: false });
+  return sb('employees?shop_id=eq.' + shopId + '&id=eq.' + String(ass.empId))
+    .then(function(emps) {
+      var emp = emps && emps[0];
+      if (!emp) return { success: false, message: 'Dipendente non trovato' };
+      return sb('assenze', {
+        method: 'POST', prefer: 'return=minimal',
+        body: { shop_id: shopId, emp_id: String(ass.empId),
+                nome: emp.nome, cognome: emp.cognome,
+                data: ass.data, data_fine: ass.dataFine || ass.data,
+                tipo: ass.tipo, nota: ass.nota || '' }
+      }).then(function() { return { success: true }; });
+    }).catch(function(e) { return { success: false, message: e.message }; });
+}
+
+function deleteAssenza(shopId, assId) {
+  if (!shopId) return Promise.resolve({ success: false });
+  return sb('assenze?id=eq.' + assId, { method: 'DELETE', prefer: 'return=minimal' })
+    .then(function() { return { success: true }; })
+    .catch(function(e) { return { success: false, message: e.message }; });
+}
+
+/* ── CALENDARIO ──────────────────────────────────────────────── */
+function getCalendarData(shopId, year, month) {
+  if (!shopId) return Promise.resolve({});
+  function pad(n) { return String(n).padStart(2, '0'); }
+  var da = year + '-' + pad(month) + '-01';
+  var a  = year + '-' + pad(month) + '-' + pad(new Date(year, month, 0).getDate());
+  return Promise.all([
+    getPunches(shopId, da, a, null),
+    getAssenze(shopId, da, a, null)
+  ]).then(function(res) {
+    var bd = {};
+    res[0].forEach(function(p) {
+      var gg = p.data.split('-')[2];
+      if (!bd[gg]) bd[gg] = { entrate: 0, uscite: 0, ids: [], assenze: [] };
+      if (p.tipo === 'ENTRATA') bd[gg].entrate++;
+      if (p.tipo === 'USCITA')  bd[gg].uscite++;
+      var eid = p.empId || p.barcode;
+      if (eid && bd[gg].ids.indexOf(eid) === -1) bd[gg].ids.push(eid);
+    });
+    res[1].forEach(function(a) {
+      var gg = a.data.split('-')[2];
+      if (!bd[gg]) bd[gg] = { entrate: 0, uscite: 0, ids: [], assenze: [] };
+      bd[gg].assenze.push({ id: a.empId, nome: a.nome, cognome: a.cognome, tipo: a.tipo, nota: a.nota || '' });
+    });
+    return bd;
+  }).catch(function() { return {}; });
+}
+
+function getOggiStats(shopId) {
+  var oggi = new Date().toISOString().split('T')[0];
+  return getPunches(shopId, oggi, oggi, null).then(function(punch) {
+    var pre = {}, usc = {};
+    punch.forEach(function(p) {
+      if (p.tipo === 'ENTRATA') { pre[p.empId] = p; delete usc[p.empId]; }
+      else { usc[p.empId] = p; delete pre[p.empId]; }
+    });
+    return { data: oggi, totale: punch.length,
+             presenti: Object.keys(pre).map(function(k) { return pre[k]; }),
+             usciti:   Object.keys(usc).map(function(k) { return usc[k]; }),
+             punches:  punch };
+  });
+}
+
+/* ── ORE & ANOMALIE ──────────────────────────────────────────── */
+function getRiepilogoOre(shopId, year, month) {
+  if (!shopId) return Promise.resolve({ employees: [], lastDay: 30, soglia: 8 });
+  function pad(n) { return String(n).padStart(2, '0'); }
+  var prefix = year + '-' + pad(month);
+  var lastDay = new Date(year, month, 0).getDate();
+  var soglia = 8 * 60;
+  function fmt(m) { return Math.floor(m / 60) + 'h' + pad(m % 60); }
+  return getPunches(shopId, prefix + '-01', prefix + '-' + pad(lastDay), null)
+    .then(function(punches) {
+      var byEmp = {};
+      punches.forEach(function(p) {
+        var eid = p.empId || p.barcode;
+        if (!byEmp[eid]) byEmp[eid] = { nome: (p.nome || '') + ' ' + (p.cognome || ''), giorni: {} };
+        var gg = p.data.split('-')[2];
+        if (!byEmp[eid].giorni[gg]) byEmp[eid].giorni[gg] = [];
+        byEmp[eid].giorni[gg].push(p);
+      });
+      var result = Object.keys(byEmp).map(function(eid) {
+        var emp = byEmp[eid]; var totMin = 0, totExtra = 0, giorniLav = 0, nAnom = 0; var giorni = {};
+        for (var g = 1; g <= lastDay; g++) {
+          var gg = pad(g), ps = emp.giorni[gg] || [];
+          if (!ps.length) { giorni[gg] = null; continue; }
+          var sorted = ps.slice().sort(function(a, b) { return a.ora < b.ora ? -1 : 1; });
+          var minG = 0, lastIn = null;
+          sorted.forEach(function(p) {
+            if (p.tipo === 'ENTRATA') { lastIn = p.ora; }
+            else if (p.tipo === 'USCITA' && lastIn) {
+              var ah = parseInt(lastIn.split(':')[0]), am = parseInt(lastIn.split(':')[1]);
+              var bh = parseInt(p.ora.split(':')[0]),  bm = parseInt(p.ora.split(':')[1]);
+              minG += (bh * 60 + bm) - (ah * 60 + am);
+              lastIn = null;
+            }
+          });
+          var entr = ps.filter(function(x) { return x.tipo === 'ENTRATA'; });
+          var usc  = ps.filter(function(x) { return x.tipo === 'USCITA'; });
+          var anom = entr.length !== usc.length;
+          totMin += minG; if (minG > 0) giorniLav++;
+          var extra = Math.max(0, minG - soglia); totExtra += extra; if (anom) nAnom++;
+          giorni[gg] = {
+            min: minG, ore: fmt(minG), extra: extra > 0 ? fmt(extra) : '', anom: anom,
+            in:  entr.length ? entr.sort(function(a,b){return a.ora<b.ora?-1:1;})[0].ora.substring(0, 5) : '',
+            out: usc.length  ? usc.sort(function(a,b){return a.ora<b.ora?-1:1;})[usc.length-1].ora.substring(0, 5) : ''
+          };
+        }
+        return { id: eid, nome: emp.nome, totOre: fmt(totMin), totMin: totMin,
+                 straord: totExtra > 0 ? fmt(totExtra) : '-', giorniLav: giorniLav, nAnom: nAnom, giorni: giorni };
+      });
+      result.sort(function(a, b) { return a.nome < b.nome ? -1 : 1; });
+      return { employees: result, lastDay: lastDay, soglia: 8 };
+    }).catch(function() { return { employees: [], lastDay: 30, soglia: 8 }; });
+}
+
+function getAnomalie(shopId, dateFrom, dateTo) {
+  return getPunches(shopId, dateFrom, dateTo, null).then(function(punches) {
+    var byKey = {};
+    punches.forEach(function(p) {
+      var k = p.data + '|' + (p.empId || p.barcode);
+      if (!byKey[k]) byKey[k] = [];
+      byKey[k].push(p);
+    });
+    var an = [];
+    Object.keys(byKey).forEach(function(k) {
+      var ps = byKey[k], nome = ps[0].nome + ' ' + ps[0].cognome, data = ps[0].data, eid = ps[0].empId || ps[0].barcode;
+      var entr = ps.filter(function(p) { return p.tipo === 'ENTRATA'; });
+      var usc  = ps.filter(function(p) { return p.tipo === 'USCITA'; });
+      if (entr.length > usc.length) an.push({ tipo: 'ENTRATA_SENZA_USCITA', label: 'Entrata senza uscita', data: data, id: eid, nome: nome, dettaglio: entr.length + ' entr, ' + usc.length + ' usc' });
+      if (usc.length > entr.length) an.push({ tipo: 'USCITA_SENZA_ENTRATA', label: 'Uscita senza entrata', data: data, id: eid, nome: nome, dettaglio: usc.length + ' usc, ' + entr.length + ' entr' });
+    });
+    an.sort(function(a, b) { return a.data < b.data ? 1 : -1; });
+    return an;
+  });
+}
+
+/* ── REPARTI & TURNI ─────────────────────────────────────────── */
+function getReparti()  { return Promise.resolve([]); }
+function getTurni()    { return Promise.resolve([]); }
+function saveTurno()   { return Promise.resolve({ success: true }); }
+function deleteTurno() { return Promise.resolve({ success: true }); }
+function confrontaTurni() { return Promise.resolve({}); }
+
+/* ── IMPOSTAZIONI ────────────────────────────────────────────── */
+function salvaImpostazioni(shopId, settings) {
+  if (!shopId) return Promise.resolve({ success: false });
+  return sb('shops?id=eq.' + shopId, { method: 'PATCH', prefer: 'return=minimal', body: { settings: settings } })
+    .then(function() { return { success: true }; })
+    .catch(function(e) { return { success: false, message: e.message }; });
+}
+
+function setOreSoglia(shopId, ore) {
+  if (!shopId) return Promise.resolve({ success: false });
+  return sb('shops?id=eq.' + shopId)
+    .then(function(sh) {
+      var s = (sh && sh[0] && sh[0].settings) || {};
+      s.oreSoglia = ore;
+      return sb('shops?id=eq.' + shopId, { method: 'PATCH', prefer: 'return=minimal', body: { settings: s } });
+    })
+    .then(function() { return { success: true }; })
+    .catch(function(e) { return { success: false, message: e.message }; });
+}
+
+function getShopSettingsPublic(shopId) {
+  return sb('shops?id=eq.' + shopId)
+    .then(function(r) {
+      var s = r && r[0];
+      return s ? { success: true, settings: s.settings || {}, nome: s.nome } : { success: false };
+    }).catch(function() { return { success: false }; });
+}
+
+/* ── REPORT ──────────────────────────────────────────────────── */
+function getReportEmail()        { return Promise.resolve(null); }
+function setReportEmail()        { return Promise.resolve({ success: true }); }
+function inviaReportMensile()    { return Promise.resolve({ success: false, message: 'Non disponibile' }); }
+function inviaReportSettimanale(){ return Promise.resolve({ success: false, message: 'Non disponibile' }); }
+
+/* ── MISC ────────────────────────────────────────────────────── */
+function warmUp()         { return Promise.resolve(true); }
+function reverseGeocode() { return Promise.resolve(''); }
+function buildXLSXBase64()    { return Promise.resolve(null); }
+function buildRiepilogoXLSX() { return Promise.resolve(null); }
+function formatDate(str) {
+  if (!str || str.length < 10) return str;
+  var p = str.split('-');
+  return p[2] + '/' + p[1] + '/' + p[0];
+}
+
+/* ── WRAPPER google.script.run ───────────────────────────────── */
+var _FNS = {
+  loginOperatore: loginOperatore,
+  getEmployees: getEmployees, getEmployeesForCache: getEmployeesForCache,
+  saveEmployee: saveEmployee, deleteEmployee: deleteEmployee,
+  timbratura: timbratura, syncPunches: syncPunches,
+  getPunches: getPunches, getPunchesAvanzata: getPunchesAvanzata,
+  deletePunch: deletePunch, addManualPunch: addManualPunch, correctPunch: correctPunch,
+  getAssenze: getAssenze, getAssenzeMensili: getAssenzeMensili,
+  saveAssenza: saveAssenza, deleteAssenza: deleteAssenza,
+  getCalendarData: getCalendarData, getOggiStats: getOggiStats,
+  getRiepilogoOre: getRiepilogoOre, getAnomalie: getAnomalie,
+  getReparti: getReparti, getTurni: getTurni,
+  saveTurno: saveTurno, deleteTurno: deleteTurno, confrontaTurni: confrontaTurni,
+  getReportEmail: getReportEmail, setReportEmail: setReportEmail,
+  inviaReportMensile: inviaReportMensile, inviaReportSettimanale: inviaReportSettimanale,
+  salvaImpostazioni: salvaImpostazioni, setOreSoglia: setOreSoglia,
+  getShopSettingsPublic: getShopSettingsPublic,
+  warmUp: warmUp, reverseGeocode: reverseGeocode,
+  buildXLSXBase64: buildXLSXBase64, buildRiepilogoXLSX: buildRiepilogoXLSX
+};
+
+function makeRunner() {
+  var _ok  = function(r) { return r; };
+  var _err = function(e) { console.error('[SB]', e); };
+  var runner = {
+    withSuccessHandler: function(fn) { _ok = fn; return runner; },
+    withFailureHandler: function(fn) { _err = fn; return runner; }
+  };
+  Object.keys(_FNS).forEach(function(name) {
+    runner[name] = function() {
+      var args = Array.prototype.slice.call(arguments);
+      _FNS[name].apply(null, args).then(_ok).catch(_err);
+    };
+  });
+  return runner;
+}
+
+window.google = {
+  script: {
+    run: new Proxy({}, {
+      get: function(_, prop) {
+        var r = makeRunner();
+        return r[prop] !== undefined ? r[prop] : function() {};
+      }
+    })
+  }
+};
+
+/* Esponi formatDate globalmente */
+window.formatDate = formatDate;
+
+})();
+
 </script>
 
 <script>
@@ -1570,12 +2008,12 @@ function onFailure(err){
 // ── OVERLAY CONFERMA ─────────────────────────────────────
 function mostraConferma(res){
   if(!res) return;
+  var _s=function(id,v){var e=document.getElementById(id);if(e)e.textContent=v;};
+  var _c=function(id,v){var e=document.getElementById(id);if(e)e.className=v;};
   var isEntrata = res.tipo === 'ENTRATA';
   var cls       = isEntrata ? 'entrata' : 'uscita';
-  var _s = function(id,val){ var e=document.getElementById(id); if(e) e.textContent=val; };
-  var _c = function(id,val){ var e=document.getElementById(id); if(e) e.className=val; };
 
-  _s('ov-emoji', isEntrata ? '✅' : '🚪');
+  document.getElementById('ov-emoji').textContent = isEntrata ? '✅' : '🚪';
   _s('ov-tipo', res.tipo);
   _c('ov-tipo', 'ov-tipo ' + cls);
   _s('ov-nome', res.nome + (res.cognome ? ' '+res.cognome : ''));
@@ -1586,20 +2024,14 @@ function mostraConferma(res){
   if(card) card.className = 'ov-card ' + cls;
 
   var fill = document.getElementById('ov-bar-fill');
-  if(fill){
-    fill.className = 'ov-bar-fill ' + cls;
-    fill.style.animationDuration = (AUTO_CLOSE||3000) + 'ms';
-    fill.style.animation = 'none';
-    void fill.offsetWidth;
-    fill.style.animation = '';
-  }
+  if(fill) fill.className = 'ov-bar-fill ' + cls;
+  if(fill) fill.style.animationDuration = (AUTO_CLOSE||3000) + 'ms';
+  if(fill){ fill.style.animation='none'; void fill.offsetWidth; fill.style.animation=''; }
 
   var ov = document.getElementById('overlay');
-  if(ov){
-    ov.style.display = 'flex';
-    void ov.offsetWidth;
-    ov.classList.add('show');
-  }
+  ov.style.display = 'flex';  // forza display prima di show
+  void ov.offsetWidth;         // reflow
+  ov.classList.add('show');
 
   setStatus(
     isEntrata ? '✅' : '🚪',
@@ -1843,21 +2275,14 @@ function chiudiOverlay(){
 }
 
 function mostraErrore(msg){
-  var errMsg = document.getElementById('err-msg');
-  if(errMsg) errMsg.textContent = msg || 'Badge non riconosciuto.';
+  var em=document.getElementById('err-msg'); if(em) em.textContent = msg || 'Badge non riconosciuto.';
   var ov = document.getElementById('err-overlay');
-  if(ov) ov.classList.add('show');
-  if(typeof setStatus === 'function') setStatus('❌', msg || 'Badge non riconosciuto', 'err');
+  ov.classList.add('show');
+  setStatus('❌', msg || 'Badge non riconosciuto', 'err');
   setTimeout(function(){
-    chiudiErrore();
-  }, ERR_CLOSE || 3000);
-}
-
-function chiudiErrore(){
-  var ov = document.getElementById('err-overlay');
-  if(ov) ov.classList.remove('show');
-  busy = false;
-  refocus();
+    ov.classList.remove('show');
+    refocus();
+  }, ERR_CLOSE);
 }
 
 function showSpinner(on){
@@ -2581,20 +3006,20 @@ function apriGiorno(dateStr, dayNum){
     body.innerHTML = html;
   }
 
-  var shopId = getShopId();
-  if(!shopId){ _punches2=[]; _assenze2=[]; _renderGiorno(); return; }
+  var _shopId = getShopId();
+  if(!_shopId){ _punches2=[]; _assenze2=[]; _renderGiorno(); return; }
   var myEmpG = _myEmpId();
   var dipG = (myEmpG && myEmpG !== '__NONE__') ? myEmpG : null;
 
   google.script.run
     .withSuccessHandler(function(res){ _punches2 = _filterBySession(res)||[]; _renderGiorno(); })
     .withFailureHandler(function(){ _punches2 = []; _renderGiorno(); })
-    .getPunches(shopId, dateStr, dateStr, dipG);
+    .getPunches(_shopId, dateStr, dateStr, dipG);
 
   google.script.run
     .withSuccessHandler(function(res){ _assenze2 = _filterBySession(res)||[]; _renderGiorno(); })
     .withFailureHandler(function(){ _assenze2 = []; _renderGiorno(); })
-    .getAssenze(shopId, dateStr, dateStr, dipG);
+    .getAssenze(_shopId, dateStr, dateStr, dipG);
 }
 
 function chiudiDet(){
@@ -2661,7 +3086,7 @@ function renderTabella(){
       '<td>'+formatDate(String(p.data))+'</td>'+
       '<td>'+p.ora+'</td>'+
       '<td>'+p.nome+' '+p.cognome+edit+man+'</td>'+
-      '<td style="color:var(--sub)">'+( p.empId||p.barcode||p.id )+'</td>'+
+      '<td style="color:var(--sub)">'+(p.empId||p.barcode||p.id)+'</td>'+
       '<td><span class="badge '+cls+'">'+p.tipo+'</span></td>'+
       '<td style="font-size:.72rem;color:var(--sub);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+(p.luogo||'')+'">'+(p.luogo||'')+'</td>'+
       '<td style="font-size:.72rem;color:var(--sub);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+(p.nota||'')+'">'+(p.nota||'')+'</td>'+
@@ -3472,7 +3897,7 @@ function caricaReparti(){
       });
     })
     .withFailureHandler(function(){})
-    .getReparti(getShopId());
+    .getReparti(getShopId())();
 }
 
 // ── RICERCA AVANZATA ───────────────────────────────────────────
