@@ -668,7 +668,6 @@ input[type=date].fi{color-scheme:dark;}
    SUPABASE LAYER - Rimpiazza completamente google.script.run
    URL: https://ayljuhtujbjdalsvpkas.supabase.co
    ═══════════════════════════════════════════════════════════════ */
-(function() {
 'use strict';
 
 var SB_URL = 'https://ayljuhtujbjdalsvpkas.supabase.co';
@@ -1150,7 +1149,20 @@ window.google = {
 /* Esponi formatDate globalmente */
 window.formatDate = formatDate;
 
-})();
+/* ── COLORE DIPENDENTE ──────────────────────────────── */
+function getColore(id) {
+  var d = (_dipendenti||[]).filter(function(x){ return String(x.id)===String(id); })[0];
+  return d ? (d.colore||'#2980b9') : '#2980b9';
+}
+window.getColore = getColore;
+
+/* Esponi funzioni globalmente per compatibilità */
+window.getPunches = getPunches;
+window.getAssenze = getAssenze;
+window.getEmployees = getEmployees;
+window.timbratura = timbratura;
+
+
 
 </script>
 
@@ -3886,17 +3898,9 @@ var _turniDB  = [];
 
 // ── REPARTI — carica e popola i select ─────────────────────────
 function caricaReparti(){
-  google.script.run
-    .withSuccessHandler(function(reps){
-      var sel = document.getElementById('f-reparto');
-      if(!sel) return;
-      sel.innerHTML = '<option value="">Tutti i reparti</option>';
-      reps.forEach(function(r){
-        var o=document.createElement('option'); o.value=r; o.textContent=r; sel.appendChild(o);
-      });
-    })
-    .withFailureHandler(function(){})
-    .getReparti(getShopId())();
+  var sel = document.getElementById('f-reparto');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">Tutti i reparti</option>';
 }
 
 // ── RICERCA AVANZATA ───────────────────────────────────────────
