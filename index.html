@@ -1725,10 +1725,18 @@ function _myEmpId(){
 var _settingsLoaded = false;
 
 function caricaImpostazioniAll(){
-  // Le settings sono già iniettate da GAS nel template — applicale subito
-  _settingsLoaded = true;
-  applicaImpostazioni();
-  // (nessun caricamento asincrono necessario)
+  var shopId = getShopId();
+  if(!shopId){ _settingsLoaded=true; applicaImpostazioni(); return; }
+  getShopSettingsPublic(shopId).then(function(r){
+    if(r && r.success && r.settings){
+      Object.assign(_settings, r.settings);
+    }
+    _settingsLoaded = true;
+    applicaImpostazioni();
+  }).catch(function(){
+    _settingsLoaded = true;
+    applicaImpostazioni();
+  });
 }
 
 function aggiornaImpostazione(key, val){
